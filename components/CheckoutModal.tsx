@@ -4,7 +4,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { X, Lock } from 'lucide-react';
 
-// Initialize Stripe with your Public Key
+// Initialize Stripe
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
 
 const CheckoutForm = ({ price, onSuccess }: { price: number, onSuccess: () => void }) => {
@@ -35,7 +35,9 @@ const CheckoutForm = ({ price, onSuccess }: { price: number, onSuccess: () => vo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement options={{theme: 'night'}} />
+      {/* FIXED: Removed the invalid 'theme' option here because it's handled by the wrapper below */}
+      <PaymentElement />
+      
       {error && <div className="text-red-500 text-xs">{error}</div>}
       <button 
         disabled={!stripe || loading}
@@ -55,7 +57,7 @@ export default function CheckoutModal({ isOpen, onClose, price }: { isOpen: bool
       fetch('/api/stripe/create-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: price * 100 }), // Amount in cents
+        body: JSON.stringify({ amount: price * 100 }), 
       })
       .then(res => res.json())
       .then(data => setClientSecret(data.clientSecret));
