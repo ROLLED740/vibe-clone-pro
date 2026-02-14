@@ -35,7 +35,7 @@ const CheckoutForm = ({ price, onSuccess }: { price: number, onSuccess: () => vo
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {/* FIXED: Removed the invalid 'options' prop. Theme is inherited from parent. */}
+      {/* FIXED: We removed the 'options' prop entirely. It inherits the theme from the parent. */}
       <PaymentElement />
       
       {error && <div className="text-red-500 text-xs">{error}</div>}
