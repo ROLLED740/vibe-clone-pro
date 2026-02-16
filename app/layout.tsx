@@ -1,23 +1,27 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import Navbar from "@/components/Navbar";
+import './globals.css'
+import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import SmartNavbar from '@/components/SmartNavbar'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: "VibeClonePro | AI Architecture",
-  description: "Clone, Build, Monetize.",
-};
+  title: 'Vibe Clone Pro',
+  description: 'AI App Generator',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="en">
-      <body className="bg-[#020502] text-white">
-        <Navbar />
+      <body className={inter.className + " bg-[#020502]"}>
+        {/* We use the SmartNavbar here. It will hide itself when you enter the app. */}
+        <SmartNavbar />
         {children}
       </body>
     </html>
-  );
+  )
 }
