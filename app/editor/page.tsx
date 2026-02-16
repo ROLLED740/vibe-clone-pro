@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { useChat } from 'ai/react';
 import { Send, Sparkles, Zap, Brain, Bot, ArrowLeft, ChevronDown, Download, Wallet, TrendingUp, Menu, Heart, X as XIcon } from 'lucide-react';
 import Link from 'next/link';
 
@@ -88,48 +89,28 @@ const DatingTemplate = () => (
   </div>
 );
 
-// --- EDITOR ---
 export default function Editor() {
-  const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [activeApp, setActiveApp] = useState<'airbnb' | 'crypto' | 'dating'>('airbnb');
   const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Pro');
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+
+  // VERCEL AI SDK HOOK
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    body: { modelName: selectedModel },
+    onFinish: (message) => {
+        // KEEP THE MAGIC: Check the response for keywords to switch the UI
+        const content = message.content.toLowerCase();
+        if (content.includes('crypto') || content.includes('bitcoin')) setActiveApp('crypto');
+        else if (content.includes('dating') || content.includes('tinder')) setActiveApp('dating');
+        else if (content.includes('rental') || content.includes('airbnb')) setActiveApp('airbnb');
+    }
+  });
 
   const models = [
     { name: 'Gemini 1.5 Pro', icon: <Sparkles size={14} className="text-blue-400"/>, description: 'Best for logic & speed' },
     { name: 'Grok 2 (Beta)', icon: <Zap size={14} className="text-white"/>, description: 'Uncensored & creative' },
     { name: 'GPT-4o', icon: <Brain size={14} className="text-green-400"/>, description: 'Standard reasoning' },
-    { name: 'Claude 3.5 Sonnet', icon: <Bot size={14} className="text-orange-400"/>, description: 'Top-tier coding' },
   ];
-
-  const [messages, setMessages] = useState([
-    { role: 'ai', text: 'Vibe Engine initialized. Try asking for a "crypto app" or "dating app".' }
-  ]);
-
-  const handleSend = () => {
-    if (!prompt.trim()) return;
-    setMessages(prev => [...prev, { role: 'user', text: prompt }]);
-    const userPrompt = prompt.toLowerCase();
-    setPrompt('');
-    setIsGenerating(true);
-
-    setTimeout(() => {
-      let response = 'Updating UI components...';
-      if (userPrompt.includes('crypto') || userPrompt.includes('bitcoin')) {
-        setActiveApp('crypto');
-        response = `Switching context to FinTech. Generating dark-mode charts using ${selectedModel}...`;
-      } else if (userPrompt.includes('dating') || userPrompt.includes('tinder')) {
-        setActiveApp('dating');
-        response = `Building matching algorithm. Deploying swipe interface via ${selectedModel}...`;
-      } else {
-        setActiveApp('airbnb');
-        response = `Restoring travel marketplace template...`;
-      }
-      setMessages(prev => [...prev, { role: 'ai', text: response }]);
-      setIsGenerating(false);
-    }, 1200);
-  };
 
   return (
     <main className="h-screen bg-[#050505] flex flex-col overflow-hidden text-gray-300 font-sans">
@@ -163,26 +144,38 @@ export default function Editor() {
       </header>
 
       <div className="flex-1 flex overflow-hidden">
+        {/* CHAT AREA */}
         <div className="w-full md:w-[400px] border-r border-gray-800 flex flex-col bg-[#020202] z-10">
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {messages.length === 0 && <div className="text-sm text-gray-500 p-4">Vibe Engine ready. Try "Build a crypto app".</div>}
+            
             {messages.map((msg, i) => (
               <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'ai' ? 'bg-cyan-900/30 text-cyan-400' : 'bg-gray-700 text-white'}`}>
-                  {msg.role === 'ai' ? <Sparkles size={16}/> : <div className="text-xs font-bold">You</div>}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'assistant' ? 'bg-cyan-900/30 text-cyan-400' : 'bg-gray-700 text-white'}`}>
+                  {msg.role === 'assistant' ? <Sparkles size={16}/> : <div className="text-xs font-bold">You</div>}
                 </div>
-                <div className={`text-sm p-3 rounded-xl max-w-[85%] ${msg.role === 'ai' ? 'bg-[#0A0F14] border border-gray-800' : 'bg-cyan-600/10 border border-cyan-500/20 text-cyan-100'}`}>{msg.text}</div>
+                <div className={`text-sm p-3 rounded-xl max-w-[85%] ${msg.role === 'assistant' ? 'bg-[#0A0F14] border border-gray-800' : 'bg-cyan-600/10 border border-cyan-500/20 text-cyan-100'}`}>
+                  {msg.content}
+                </div>
               </div>
             ))}
-            {isGenerating && <div className="text-xs text-gray-500 p-4 animate-pulse">Generating UI...</div>}
+            {isLoading && <div className="text-xs text-gray-500 p-4 animate-pulse">Thinking via {selectedModel}...</div>}
           </div>
+          
           <div className="p-4 border-t border-gray-800 bg-[#0A0F14]">
-            <div className="relative">
-              <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()} placeholder="Try 'crypto app' or 'dating app'..." className="w-full bg-[#050505] border border-gray-700 rounded-lg pl-4 pr-12 py-3 text-sm focus:border-cyan-500 text-white resize-none h-24"/>
-              <button onClick={handleSend} className="absolute bottom-3 right-3 p-2 bg-cyan-500 text-black rounded"><Send size={16}/></button>
-            </div>
+            <form onSubmit={handleSubmit} className="relative">
+              <input 
+                value={input} 
+                onChange={handleInputChange} 
+                placeholder={`Ask ${selectedModel} to build something...`} 
+                className="w-full bg-[#050505] border border-gray-700 rounded-lg pl-4 pr-12 py-3 text-sm focus:border-cyan-500 text-white"
+              />
+              <button type="submit" className="absolute bottom-2 right-2 p-1.5 bg-cyan-500 text-black rounded"><Send size={16}/></button>
+            </form>
           </div>
         </div>
 
+        {/* PREVIEW AREA */}
         <div className="hidden md:flex flex-1 bg-[#101010] flex-col items-center justify-center p-8 relative">
           <div className="absolute top-4 left-4 px-2 py-1 rounded bg-red-500/20 text-red-400 text-[10px] font-mono flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Live Preview</div>
           <div className="w-full max-w-sm h-full max-h-[700px] bg-white rounded-[40px] border-[8px] border-gray-800 overflow-hidden shadow-2xl relative transition-all duration-500">
