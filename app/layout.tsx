@@ -2,6 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import SmartNavbar from '@/components/SmartNavbar'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         {/* We use the SmartNavbar here. It will hide itself when you enter the app. */}
         <SmartNavbar />
         {children}
+        <Analytics />
       </body>
     </html>
   )
