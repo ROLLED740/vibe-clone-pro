@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, Zap, Sparkles, Image as ImageIcon, X, ChevronRight, Loader2, Code2 } from 'lucide-react';
+import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2 } from 'lucide-react';
 import Link from 'next/link';
 import { Sandpack } from '@codesandbox/sandpack-react';
 
@@ -128,10 +128,10 @@ export default function Editor() {
               onClick={triggerSwarm}
               disabled={isCloning || (!idea && !imageBase64)}
               className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${isCloning
-                  ? 'bg-cyan-900/50 text-cyan-500 cursor-not-allowed'
-                  : (!idea && !imageBase64)
-                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                    : 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]'
+                ? 'bg-cyan-900/50 text-cyan-500 cursor-not-allowed'
+                : (!idea && !imageBase64)
+                  ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                  : 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]'
                 }`}
             >
               {isCloning ? <><Loader2 size={18} className="animate-spin" /> Swarm Engaged...</> : <><Zap size={18} /> Launch Clone Sequence</>}
@@ -163,8 +163,8 @@ export default function Editor() {
                     key={name}
                     onClick={() => setActiveTab(idx)}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === idx
-                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                        : 'text-gray-500 hover:text-gray-300 border border-transparent'
+                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                      : 'text-gray-500 hover:text-gray-300 border border-transparent'
                       }`}
                   >
                     {name}
