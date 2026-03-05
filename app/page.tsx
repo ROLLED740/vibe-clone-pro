@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { Zap, MonitorPlay, Code2, Shield, Layers } from 'lucide-react';
 
 export default function LandingPage() {
-  // Setting the default video to match the exact capital MP4
   const [activeVideo, setActiveVideo] = useState('/promo-video.MP4');
 
-  // Exact case-sensitive mapping to your public folder files
   const playlist = [
     { id: 'promo', title: 'System Overview', src: '/promo-video.MP4', icon: <MonitorPlay size={14} /> },
     { id: 'flicker', title: 'FlickerMania UI', src: '/FlickerMania.mp4', icon: <Layers size={14} /> },
@@ -32,20 +30,19 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* --- HERO SECTION (LIGHTNING RESTORED) --- */}
+      {/* --- HERO SECTION --- */}
       <section className="relative pt-32 pb-12 md:pt-40 md:pb-16 px-6 flex flex-col items-center text-center overflow-hidden">
-        {/* The glowing orb */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none" />
 
-        {/* THE LIGHTNING: Properly constrained background video */}
+        {/* THE LIGHTNING: Opacity cranked up to 80% */}
         <video
           src="/vibe-intro.mp4"
           autoPlay loop muted playsInline
-          className="absolute top-0 left-0 w-full h-full object-cover opacity-30 mix-blend-screen pointer-events-none"
+          className="absolute top-0 left-0 w-full h-full object-cover opacity-80 mix-blend-screen pointer-events-none"
         />
 
-        {/* Gradient overlay to ensure text is readable over the lightning */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/60 to-[#050505] pointer-events-none" />
+        {/* Gradient overlay softened so the video punches through */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/40 to-[#050505] pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-6">
