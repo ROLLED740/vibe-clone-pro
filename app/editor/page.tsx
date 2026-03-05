@@ -72,7 +72,7 @@ export default function Editor() {
     <main className="h-screen bg-[#050505] flex flex-col overflow-hidden text-gray-300 font-sans">
       <header className="h-14 border-b border-gray-800 bg-[#0A0F14] flex items-center justify-between px-4 z-20 shrink-0">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors">
+          <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors" title="Back to Dashboard">
             <ChevronRight size={18} className="rotate-180" />
           </Link>
           <div className="flex items-center gap-2">
@@ -94,6 +94,7 @@ export default function Editor() {
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full h-32 border-2 border-dashed border-gray-700 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all rounded-xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-cyan-400 group"
+                  title="Upload UI Image"
                 >
                   <Upload size={24} className="group-hover:-translate-y-1 transition-transform" />
                   <span className="text-sm font-medium">Drop UI Image</span>
@@ -102,12 +103,12 @@ export default function Editor() {
                 <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-700 group">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={imagePreview} alt="Target UI" className="w-full h-full object-cover opacity-80" />
-                  <button aria-label="Clear image" onClick={clearImage} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500/80 text-white rounded-lg backdrop-blur transition-colors">
+                  <button aria-label="Clear image" title="Clear image" onClick={clearImage} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500/80 text-white rounded-lg backdrop-blur transition-colors">
                     <X size={14} />
                   </button>
                 </div>
               )}
-              <input aria-label="Upload interface image" type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+              <input aria-label="Upload interface image" title="Upload interface image" type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
             </div>
 
             <div className="h-px w-full bg-gray-800" />
@@ -119,6 +120,8 @@ export default function Editor() {
                 onChange={(e) => setIdea(e.target.value)}
                 placeholder="e.g. Build a pricing page with 3 tiers and a glowing CTA..."
                 className="w-full h-32 bg-[#050505] border border-gray-700 focus:border-cyan-500 rounded-xl p-3 text-sm text-white resize-none outline-none transition-colors"
+                aria-label="Architecture Prompt"
+                title="Architecture Prompt"
               />
             </div>
           </div>
@@ -133,6 +136,7 @@ export default function Editor() {
                   ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                   : 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]'
                 }`}
+              title="Launch Clone Sequence"
             >
               {isCloning ? <><Loader2 size={18} className="animate-spin" /> Swarm Engaged...</> : <><Zap size={18} /> Launch Clone Sequence</>}
             </button>
@@ -142,9 +146,7 @@ export default function Editor() {
         {/* RIGHT COLUMN: PREVIEW OR CUSTOM LOADING STATE */}
         <div className="flex-1 bg-[#020202] relative flex flex-col">
           {isCloning ? (
-            // CUSTOM GIF LOADING SCREEN (FIXED SCALE & RESOLUTION)
             <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center animate-in fade-in duration-500">
-              {/* Shrinking container to 96px (w-24), masking as a perfect circle, adding premium glow */}
               <div className="w-24 h-24 mb-6 relative flex items-center justify-center rounded-full bg-black border border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.15)] overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/loading-vibe.gif" alt="Swarm Processing" className="w-[120%] h-[120%] object-cover object-center" />
@@ -155,7 +157,6 @@ export default function Editor() {
               </p>
             </div>
           ) : results.length > 0 ? (
-            // COMPLETED SANDPACK SCREEN
             <div className="flex-1 flex flex-col p-6 z-10 h-full">
               <div className="flex items-center gap-2 mb-4 bg-[#0A0F14] p-1.5 rounded-xl border border-gray-800 w-max">
                 {variantNames.map((name, idx) => (
@@ -166,6 +167,7 @@ export default function Editor() {
                       ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
                       : 'text-gray-500 hover:text-gray-300 border border-transparent'
                       }`}
+                    title={"View " + name}
                   >
                     {name}
                   </button>
@@ -207,7 +209,6 @@ export default function Editor() {
               </div>
             </div>
           ) : (
-            // DEFAULT EMPTY STATE
             <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center">
               <div className="w-20 h-20 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6">
                 <Zap size={32} className="text-cyan-400" />
