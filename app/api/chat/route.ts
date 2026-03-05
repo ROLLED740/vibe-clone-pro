@@ -26,5 +26,5 @@ export async function POST(req: Request) {
     system: 'You are Vibe Engine, an expert AI software architect. You build full-stack apps. Be concise, technical, and confident.',
   });
 
-  return result.toAIStreamResponse();
+  return result.toTextStreamResponse();
 }
