@@ -1,190 +1,225 @@
 'use client';
-import React, { useState } from 'react';
-import { useChat } from 'ai/react';
-import { Send, Sparkles, Zap, Brain, Bot, ArrowLeft, ChevronDown, Download, Wallet, TrendingUp, Menu, Heart, X as XIcon } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import { Upload, Zap, Sparkles, Image as ImageIcon, X, ChevronRight, Loader2, Code2 } from 'lucide-react';
 import Link from 'next/link';
-
-// --- TEMPLATES ---
-const AirbnbTemplate = () => (
-  <div className="h-full w-full bg-gray-50 flex flex-col pt-8 animate-in fade-in duration-500">
-    <div className="px-4 py-2 flex justify-between items-center border-b bg-white">
-      <span className="font-bold text-lg text-rose-500">airbnb</span>
-      <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
-    </div>
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-      <div className="bg-white p-3 rounded-full shadow-sm border flex items-center gap-2 text-gray-400 text-sm">
-        <div className="w-4 h-4 rounded-full border border-gray-400"></div> Where to?
-      </div>
-      {[1, 2, 3].map((i) => (
-        <div key={i} className="bg-white rounded-xl overflow-hidden shadow-sm border">
-          <div className="h-40 bg-gray-200 w-full relative">
-              <div className="absolute top-2 right-2 p-1 bg-white/80 rounded-full">❤</div>
-          </div>
-          <div className="p-3">
-            <div className="flex justify-between font-bold text-sm">
-              <span>Joshua Tree, CA</span>
-              <span>★ 4.9</span>
-            </div>
-            <div className="text-gray-500 text-xs mt-1">145 miles away</div>
-            <div className="text-sm font-semibold mt-2">$245 <span className="font-normal text-gray-500">night</span></div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const CryptoTemplate = () => (
-  <div className="h-full w-full bg-[#0d0d0d] text-white flex flex-col pt-8 animate-in fade-in duration-500">
-    <div className="px-6 py-4 flex justify-between items-center">
-      <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center font-bold text-black">$</div>
-      <Wallet size={20} className="text-gray-400"/>
-    </div>
-    <div className="px-6 mb-6">
-      <div className="text-gray-400 text-xs uppercase tracking-wider">Total Balance</div>
-      <div className="text-3xl font-bold font-mono mt-1">$124,592.00</div>
-      <div className="flex items-center gap-2 text-green-400 text-sm mt-2">
-        <TrendingUp size={14}/> +12.5% today
-      </div>
-    </div>
-    <div className="flex-1 bg-[#1a1a1a] rounded-t-[30px] p-6 space-y-4">
-      <div className="flex justify-between text-sm font-bold text-gray-500 mb-2"><span>ASSETS</span><span>VALUE</span></div>
-      {[
-        { n: 'Bitcoin', s: 'BTC', v: '$98,200', c: 'text-white' },
-        { n: 'Ethereum', s: 'ETH', v: '$3,400', c: 'text-white' },
-        { n: 'Solana', s: 'SOL', v: '$145', c: 'text-white' },
-      ].map((c, i) => (
-        <div key={i} className="flex justify-between items-center p-4 bg-[#252525] rounded-xl hover:bg-[#2a2a2a]">
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full ${i===0 ? 'bg-orange-500': i===1 ? 'bg-blue-500' : 'bg-purple-500'}`}></div>
-            <div><div className="font-bold">{c.n}</div><div className="text-xs text-gray-400">{c.s}</div></div>
-          </div>
-          <div className="font-mono">{c.v}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const DatingTemplate = () => (
-  <div className="h-full w-full bg-white flex flex-col pt-8 animate-in fade-in duration-500 relative">
-    <div className="px-4 py-2 flex justify-between items-center">
-      <div className="text-rose-500 font-bold text-xl">vibe</div>
-      <Menu size={20} className="text-gray-400"/>
-    </div>
-    <div className="flex-1 p-4 flex flex-col items-center justify-center relative">
-      <div className="w-full h-[400px] bg-gray-200 rounded-2xl overflow-hidden relative shadow-xl">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60"></div>
-        <div className="absolute bottom-6 left-6 text-white">
-          <h2 className="text-3xl font-bold flex items-center gap-2">Sarah, 24 <div className="w-2 h-2 bg-green-500 rounded-full"></div></h2>
-          <p className="text-gray-200">Graphic Designer • 2 miles away</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-6 mt-8">
-        <button className="w-14 h-14 rounded-full border-2 border-red-500 text-red-500 flex items-center justify-center hover:bg-red-50 transition-colors"><XIcon size={24}/></button>
-        <button className="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center shadow-lg hover:bg-blue-400">★</button>
-        <button className="w-14 h-14 rounded-full bg-green-500 text-white flex items-center justify-center shadow-xl hover:bg-green-400 transition-colors"><Heart size={24} fill="white"/></button>
-      </div>
-    </div>
-  </div>
-);
+import { Sandpack } from '@codesandbox/sandpack-react';
 
 export default function Editor() {
-  const [activeApp, setActiveApp] = useState<'airbnb' | 'crypto' | 'dating'>('airbnb');
-  const [selectedModel, setSelectedModel] = useState('Gemini 1.5 Pro');
-  const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
+  const [idea, setIdea] = useState('');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [isCloning, setIsCloning] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // VERCEL AI SDK HOOK
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    body: { modelName: selectedModel },
-    onFinish: (message) => {
-        // KEEP THE MAGIC: Check the response for keywords to switch the UI
-        const content = message.content.toLowerCase();
-        if (content.includes('crypto') || content.includes('bitcoin')) setActiveApp('crypto');
-        else if (content.includes('dating') || content.includes('tinder')) setActiveApp('dating');
-        else if (content.includes('rental') || content.includes('airbnb')) setActiveApp('airbnb');
+  const [results, setResults] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState(0);
+
+  const variantNames = ['Original Vibe', 'Thicc & Bold', 'Ethereal Glow'];
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImagePreview(URL.createObjectURL(file));
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      const base64Data = base64String.split(',')[1];
+      setImageBase64(base64Data);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearImage = () => {
+    setImagePreview(null);
+    setImageBase64(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const triggerSwarm = async () => {
+    if (!idea.trim() && !imageBase64) return;
+
+    setIsCloning(true);
+    setResults([]);
+
+    try {
+      const response = await fetch('/api/clone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inputs: [{ idea, imageBase64 }]
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.codes) {
+        setResults(data.codes);
+      } else {
+        alert('Swarm encountered an anomaly: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Clone failed:', error);
+      alert('Failed to connect to VibeClone API.');
+    } finally {
+      setIsCloning(false);
     }
-  });
-
-  const models = [
-    { name: 'Gemini 1.5 Pro', icon: <Sparkles size={14} className="text-blue-400"/>, description: 'Best for logic & speed' },
-    { name: 'Grok 2 (Beta)', icon: <Zap size={14} className="text-white"/>, description: 'Uncensored & creative' },
-    { name: 'GPT-4o', icon: <Brain size={14} className="text-green-400"/>, description: 'Standard reasoning' },
-  ];
+  };
 
   return (
     <main className="h-screen bg-[#050505] flex flex-col overflow-hidden text-gray-300 font-sans">
-      <header className="h-14 border-b border-gray-800 bg-[#0A0F14] flex items-center justify-between px-4 z-20">
+      <header className="h-14 border-b border-gray-800 bg-[#0A0F14] flex items-center justify-between px-4 z-20 shrink-0">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-gray-500 hover:text-white"><ArrowLeft size={18} /></Link>
+          <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors">
+            <ChevronRight size={18} className="rotate-180" />
+          </Link>
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white hidden md:block">Vibe<span className="text-cyan-500">Editor</span></span>
-            <div className="h-4 w-[1px] bg-gray-700 mx-2 hidden md:block"></div>
-            <div className="relative">
-              <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 bg-[#151b23] border border-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium text-white min-w-[140px] justify-between">
-                <div className="flex items-center gap-2">{models.find(m => m.name === selectedModel)?.icon} {selectedModel}</div>
-                <ChevronDown size={12}/>
-              </button>
-              {isModelMenuOpen && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-[#0A0F14] border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-50">
-                  <div className="p-2 space-y-1">
-                    {models.map((m) => (
-                      <button key={m.name} onClick={() => {setSelectedModel(m.name); setIsModelMenuOpen(false)}} className="w-full flex gap-3 p-2 hover:bg-[#151b23] rounded-lg text-left">
-                        <div className="mt-0.5">{m.icon}</div>
-                        <div><div className="text-sm font-medium text-gray-200">{m.name}</div><div className="text-[10px] text-gray-500">{m.description}</div></div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black">V</div>
+            <span className="font-bold text-white text-sm tracking-wide">Swarm<span className="text-cyan-500">Editor</span></span>
           </div>
         </div>
-        <button className="flex items-center gap-2 bg-cyan-500 text-black text-xs font-bold px-3 py-1.5 rounded"><Download size={14} /> Export</button>
       </header>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* CHAT AREA */}
-        <div className="w-full md:w-[400px] border-r border-gray-800 flex flex-col bg-[#020202] z-10">
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            {messages.length === 0 && <div className="text-sm text-gray-500 p-4">Vibe Engine ready. Try "Build a crypto app".</div>}
-            
-            {messages.map((msg, i) => (
-              <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'assistant' ? 'bg-cyan-900/30 text-cyan-400' : 'bg-gray-700 text-white'}`}>
-                  {msg.role === 'assistant' ? <Sparkles size={16}/> : <div className="text-xs font-bold">You</div>}
+        {/* LEFT COLUMN: CONTROLS */}
+        <div className="w-full md:w-[400px] border-r border-gray-800 flex flex-col bg-[#0A0F14] z-10 shrink-0">
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div>
+              <h2 className="text-white font-bold mb-2 flex items-center gap-2"><Sparkles size={16} className="text-cyan-500" /> Extract Vibe (Vision AI)</h2>
+              <p className="text-xs text-gray-500 mb-4">Upload a screenshot. The AI will extract the exact color palette, typography, and layout.</p>
+
+              {!imagePreview ? (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-32 border-2 border-dashed border-gray-700 hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all rounded-xl flex flex-col items-center justify-center gap-2 text-gray-500 hover:text-cyan-400 group"
+                >
+                  <Upload size={24} className="group-hover:-translate-y-1 transition-transform" />
+                  <span className="text-sm font-medium">Drop UI Image</span>
+                </button>
+              ) : (
+                <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-700 group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="Target UI" className="w-full h-full object-cover opacity-80" />
+                  <button aria-label="Clear image" onClick={clearImage} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500/80 text-white rounded-lg backdrop-blur transition-colors">
+                    <X size={14} />
+                  </button>
                 </div>
-                <div className={`text-sm p-3 rounded-xl max-w-[85%] ${msg.role === 'assistant' ? 'bg-[#0A0F14] border border-gray-800' : 'bg-cyan-600/10 border border-cyan-500/20 text-cyan-100'}`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {isLoading && <div className="text-xs text-gray-500 p-4 animate-pulse">Thinking via {selectedModel}...</div>}
-          </div>
-          
-          <div className="p-4 border-t border-gray-800 bg-[#0A0F14]">
-            <form onSubmit={handleSubmit} className="relative">
-              <input 
-                value={input} 
-                onChange={handleInputChange} 
-                placeholder={`Ask ${selectedModel} to build something...`} 
-                className="w-full bg-[#050505] border border-gray-700 rounded-lg pl-4 pr-12 py-3 text-sm focus:border-cyan-500 text-white"
+              )}
+              <input aria-label="Upload interface image" type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+            </div>
+
+            <div className="h-px w-full bg-gray-800" />
+
+            <div>
+              <h2 className="text-white font-bold mb-2 flex items-center gap-2"><Code2 size={16} className="text-cyan-500" /> Architecture Prompt</h2>
+              <textarea
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                placeholder="e.g. Build a pricing page with 3 tiers and a glowing CTA..."
+                className="w-full h-32 bg-[#050505] border border-gray-700 focus:border-cyan-500 rounded-xl p-3 text-sm text-white resize-none outline-none transition-colors"
               />
-              <button type="submit" className="absolute bottom-2 right-2 p-1.5 bg-cyan-500 text-black rounded"><Send size={16}/></button>
-            </form>
+            </div>
+          </div>
+
+          <div className="p-4 border-t border-gray-800 bg-[#050505]">
+            <button
+              onClick={triggerSwarm}
+              disabled={isCloning || (!idea && !imageBase64)}
+              className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all ${isCloning
+                  ? 'bg-cyan-900/50 text-cyan-500 cursor-not-allowed'
+                  : (!idea && !imageBase64)
+                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    : 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] hover:shadow-[0_0_30px_rgba(6,182,212,0.4)]'
+                }`}
+            >
+              {isCloning ? <><Loader2 size={18} className="animate-spin" /> Swarm Engaged...</> : <><Zap size={18} /> Launch Clone Sequence</>}
+            </button>
           </div>
         </div>
 
-        {/* PREVIEW AREA */}
-        <div className="hidden md:flex flex-1 bg-[#101010] flex-col items-center justify-center p-8 relative">
-          <div className="absolute top-4 left-4 px-2 py-1 rounded bg-red-500/20 text-red-400 text-[10px] font-mono flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> Live Preview</div>
-          <div className="w-full max-w-sm h-full max-h-[700px] bg-white rounded-[40px] border-[8px] border-gray-800 overflow-hidden shadow-2xl relative transition-all duration-500">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/3 h-6 bg-gray-800 rounded-b-xl z-10"></div>
-            {activeApp === 'airbnb' && <AirbnbTemplate />}
-            {activeApp === 'crypto' && <CryptoTemplate />}
-            {activeApp === 'dating' && <DatingTemplate />}
-          </div>
+        {/* RIGHT COLUMN: PREVIEW OR CUSTOM LOADING STATE */}
+        <div className="flex-1 bg-[#020202] relative flex flex-col">
+          {isCloning ? (
+            // CUSTOM GIF LOADING SCREEN (FIXED SCALE & RESOLUTION)
+            <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center animate-in fade-in duration-500">
+              {/* Shrinking container to 96px (w-24), masking as a perfect circle, adding premium glow */}
+              <div className="w-24 h-24 mb-6 relative flex items-center justify-center rounded-full bg-black border border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.15)] overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/loading-vibe.gif" alt="Swarm Processing" className="w-[120%] h-[120%] object-cover object-center" />
+              </div>
+              <h2 className="text-xl font-bold text-cyan-400 mb-2 animate-pulse">Synchronizing AI Swarm...</h2>
+              <p className="text-gray-500 max-w-sm text-sm">
+                Extracting visual footprint. Routing payload to Claude 3.5 Sonnet and compiling Next.js architecture. Please stand by.
+              </p>
+            </div>
+          ) : results.length > 0 ? (
+            // COMPLETED SANDPACK SCREEN
+            <div className="flex-1 flex flex-col p-6 z-10 h-full">
+              <div className="flex items-center gap-2 mb-4 bg-[#0A0F14] p-1.5 rounded-xl border border-gray-800 w-max">
+                {variantNames.map((name, idx) => (
+                  <button
+                    key={name}
+                    onClick={() => setActiveTab(idx)}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${activeTab === idx
+                        ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                        : 'text-gray-500 hover:text-gray-300 border border-transparent'
+                      }`}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 rounded-2xl border border-gray-800 overflow-hidden shadow-2xl bg-[#0A0F14] min-h-[500px]">
+                <Sandpack
+                  template="react-ts"
+                  theme="dark"
+                  files={{
+                    "/App.tsx": results[activeTab] || `export default function App() { return <div className="p-10 text-white font-sans">Generating layout...</div> }`,
+                    "/public/index.html": `<!DOCTYPE html>
+                      <html lang="en">
+                        <head>
+                          <meta charset="UTF-8">
+                          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                          <title>Live Preview</title>
+                          <script src="https://cdn.tailwindcss.com"></script>
+                        </head>
+                        <body class="bg-[#050505]">
+                          <div id="root"></div>
+                        </body>
+                      </html>`,
+                  }}
+                  customSetup={{
+                    dependencies: {
+                      "lucide-react": "latest",
+                      "framer-motion": "latest",
+                    }
+                  }}
+                  options={{
+                    showNavigator: true,
+                    showTabs: true,
+                    editorHeight: "100%",
+                    editorWidthPercentage: 45,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            // DEFAULT EMPTY STATE
+            <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6">
+                <Zap size={32} className="text-cyan-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-3">Live Compilation Ready</h2>
+              <p className="text-gray-500 max-w-md text-sm">
+                Upload a target UI and prompt your architecture. The swarm will generate the code and compile it instantly in this window.
+              </p>
+            </div>
+          )}
         </div>
+
       </div>
     </main>
   );

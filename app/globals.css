@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* THE BUNKER MASTER PALETTE */
+  --background: #050505;
+  /* Pure deep space black. Zero green. */
+  --foreground: #ffffff;
+  /* High contrast white text */
 }
 
 @theme inline {
@@ -10,17 +13,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Lock in the VibeClonePro radioactive cyan */
+  --color-primary: #06b6d4;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* We intentionally delete the 'prefers-color-scheme' block.
+   VibeClonePro is permanently dark mode. No exceptions. */
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  /* The absolute kill-switch for any browser background color bleed */
+  background-color: #050505 !important;
 }

@@ -1,81 +1,146 @@
 'use client';
+
 import React, { useState } from 'react';
-import { CreativeTerminal } from '@/components/CreativeTerminal'; 
-import { StitchSuccess } from '@/components/StitchSuccess';
-import { Send, Link as LinkIcon, Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { Zap, MonitorPlay, Code2, Shield, Layers } from 'lucide-react';
 
-export default function VibeDashboard() {
-  const [viewState, setViewState] = useState<'idle' | 'generating' | 'success'>('idle');
-  const [prompt, setPrompt] = useState('');
+export default function LandingPage() {
+  const [activeVideo, setActiveVideo] = useState('/promo-video.mp4');
 
-  const handleStart = () => {
-    if (!prompt.trim()) return;
-    setViewState('generating');
-  };
+  const playlist = [
+    { id: 'promo', title: 'System Overview', src: '/promo-video.mp4', icon: <MonitorPlay size={14} /> },
+    { id: 'flicker', title: 'FlickerMania UI', src: '/flickermania.mp4', icon: <Layers size={14} /> },
+    { id: 'loop', title: 'Core Engine Loop', src: '/vibe-logo-loop.mp4', icon: <Zap size={14} /> },
+  ];
 
-  if (viewState === 'idle') {
-    return (
-      <main className="min-h-screen bg-[#020502] text-white flex flex-col relative overflow-hidden font-sans selection:bg-cyan-500/30">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none" />
-        <header className="flex justify-between items-center p-6 z-10">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black">V</div>
-            <span className="text-sm font-medium tracking-wide">VibeClonePro</span>
+  return (
+    <div className="min-h-screen bg-[#050505] text-gray-200 font-sans selection:bg-cyan-500/30">
+
+      {/* --- NAVIGATION --- */}
+      <nav className="fixed top-0 w-full h-16 border-b border-gray-800 bg-[#050505]/80 backdrop-blur-md z-50 flex items-center justify-between px-6">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black">V</div>
+          <span className="font-bold text-white text-sm tracking-wide">Vibe<span className="text-cyan-500">Clone</span>Pro</span>
+        </div>
+        <div className="flex items-center gap-6 text-sm font-medium">
+          <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
+          <Link href="/dashboard" className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors">
+            Enter Workspace
+          </Link>
+        </div>
+      </nav>
+
+      {/* --- HERO SECTION --- */}
+      <section className="relative pt-32 pb-12 md:pt-40 md:pb-16 px-6 flex flex-col items-center text-center overflow-hidden">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-cyan-900/10 rounded-full blur-[120px] pointer-events-none" />
+
+        <div className="relative z-10 max-w-4xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-6">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest">System Deployment Active</span>
           </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-cyan-500 bg-cyan-900/10 px-3 py-1 rounded-full border border-cyan-900/50">
-             <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"/>
-             SYSTEM ONLINE
-          </div>
-        </header>
 
-        <div className="flex-1 flex flex-col items-center justify-center z-10 max-w-2xl mx-auto w-full px-4">
-          <h1 className="text-5xl font-medium tracking-tight mb-4 text-center bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
-            Clone. Build. Monetize.
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
+            Bring Your Own Key.<br />Build in the Bunker.
           </h1>
-          <p className="text-gray-500 text-center mb-12 max-w-md text-sm leading-relaxed">
-            Enter a URL to clone or describe your dream app. We handle the infrastructure, you keep the profit.
+
+          <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
+            The professional AI-powered workflow companion. Describe your app, generate the source code, and take total ownership of your infrastructure.
           </p>
 
-          <div className="w-full relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 rounded-full" />
-            <div className="relative bg-[#0A0A0A] border border-gray-800 rounded-full p-2 pl-4 flex items-center shadow-2xl transition-colors group-focus-within:border-cyan-500/50">
-              <div className="flex items-center gap-2 px-3 py-1 bg-gray-900 rounded-full border border-gray-800 mr-3">
-                <LinkIcon size={12} className="text-cyan-400"/>
-                <span className="text-[10px] font-bold text-gray-300 tracking-wider">SOURCE</span>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/editor" className="w-full sm:w-auto px-8 py-4 rounded-xl bg-cyan-500 text-black font-bold flex items-center justify-center gap-2 hover:bg-cyan-400 hover:scale-105 transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+              <Terminal size={18} /> Launch Command Center
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* --- MULTI-VIDEO SHOWCASE --- */}
+      <section id="demo" className="relative z-20 max-w-4xl mx-auto px-6 pb-32">
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+          {playlist.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveVideo(item.src)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeVideo === item.src
+                  ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
+                  : 'bg-[#0A0F14] text-gray-500 border border-gray-800 hover:text-gray-300 hover:border-gray-600'
+                }`}
+            >
+              {item.icon} {item.title}
+            </button>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-gray-800 bg-[#0A0F14] shadow-2xl overflow-hidden flex flex-col">
+          <div className="h-10 border-b border-gray-800 bg-[#05080A] flex items-center px-4 gap-2 shrink-0">
+            <div className="w-3 h-3 rounded-full bg-red-500/20 border border-red-500/50" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
+            <div className="w-3 h-3 rounded-full bg-green-500/20 border border-green-500/50" />
+            <div className="ml-4 text-[10px] text-gray-500 font-mono">
+              {activeVideo.replace('/', '')}
+            </div>
+          </div>
+
+          <div className="relative aspect-video w-full bg-[#050505]">
+            <video
+              key={activeVideo}
+              src={activeVideo}
+              autoPlay loop muted playsInline
+              className="absolute inset-0 w-full h-full object-contain"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* --- FEATURE GRID --- */}
+      <section className="py-24 px-6 bg-[#020202] border-t border-gray-900">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-8 rounded-2xl bg-[#0A0F14] border border-gray-800 hover:border-cyan-500/30 transition-colors group relative overflow-hidden">
+              <div className="w-12 h-12 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6">
+                <Code2 size={24} />
               </div>
-              <input
-                type="text"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleStart()}
-                placeholder="https://example.com or 'A dating app for...'"
-                className="flex-1 bg-transparent border-none outline-none text-sm text-gray-200 placeholder:text-gray-600"
-                autoFocus
-              />
-              <button onClick={handleStart} className="p-2 bg-cyan-500 text-black hover:bg-cyan-400 rounded-full transition-all">
-                <Send size={16} />
-              </button>
+              <h3 className="text-xl font-bold text-white mb-3">Total Code Ownership</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                No vendor lock-in. Export raw Next.js, Tailwind, and React code directly to your local machine or deploy instantly.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-2xl bg-[#0A0F14] border border-gray-800 hover:border-cyan-500/30 transition-colors group relative overflow-hidden">
+              <div className="w-12 h-12 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6">
+                <Zap size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Parallel AI Swarm</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Fire multiple LLMs simultaneously. Compare outputs from Claude, OpenAI, and Gemini instantly.
+              </p>
+            </div>
+
+            <div className="p-8 rounded-2xl bg-[#0A0F14] border border-gray-800 hover:border-cyan-500/30 transition-colors group relative overflow-hidden">
+              <div className="w-12 h-12 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 mb-6">
+                <Shield size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Encrypted VibeVault</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Store your custom styles, color palettes, and component architecture securely in your private Neon DB.
+              </p>
             </div>
           </div>
         </div>
-      </main>
-    );
-  }
+      </section>
+    </div>
+  );
+}
 
-  if (viewState === 'generating') {
-    return (
-      <main className="min-h-screen bg-[#020502] text-white flex flex-col items-center justify-center p-4">
-         <CreativeTerminal onComplete={() => setViewState('success')} />
-      </main>
-    );
-  }
-
-  if (viewState === 'success') {
-    return (
-      <main className="min-h-screen bg-[#020502] text-white flex flex-col items-center justify-center p-4">
-         <StitchSuccess onReset={() => { setPrompt(''); setViewState('idle'); }} />
-      </main>
-    );
-  }
-  return null;
+// Fixed TypeScript mapping to properly accept the 'size' property
+function Terminal(props: React.SVGProps<SVGSVGElement> & { size?: number | string }) {
+  const { size = 24, ...rest } = props;
+  return (
+    <svg {...rest} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="4 17 10 11 4 5"></polyline>
+      <line x1="12" y1="19" x2="20" y2="19"></line>
+    </svg>
+  );
 }

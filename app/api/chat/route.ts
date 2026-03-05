@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   // MAGIC ROUTER: Switch brains based on what the user clicked!
   let selectedModel;
-  
+
   // Default to a specific model if the name isn't matched perfectly
   if (modelName === 'Gemini 1.5 Pro') {
     selectedModel = google('models/gemini-1.5-pro-latest');
@@ -20,10 +20,11 @@ export async function POST(req: Request) {
   }
 
   const result = await streamText({
-    model: selectedModel,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    model: selectedModel as any,
     messages,
     system: 'You are Vibe Engine, an expert AI software architect. You build full-stack apps. Be concise, technical, and confident.',
   });
 
-  return result.toDataStreamResponse();
+  return result.toAIStreamResponse();
 }
