@@ -1,9 +1,18 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Sandpack } from '@codesandbox/sandpack-react';
+
+const loadingSteps = [
+  "Extracting Vision constraints...",
+  "Routing payload to models...",
+  "Generating Next.js Architecture...",
+  "Applying robust Tailwind styles...",
+  "Finalizing code and saving to DB..."
+];
 
 export default function Editor() {
   const [idea, setIdea] = useState('');
@@ -14,6 +23,34 @@ export default function Editor() {
 
   const [results, setResults] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(0);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isCloning) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep(prev => prev < loadingSteps.length - 1 ? prev + 1 : prev);
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [isCloning]);
+
+  const cancelSwarm = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+    setIsCloning(false);
+    setErrorToast("Swarm sequence aborted manually.");
+  };
 
   const variantNames = ['Original Vibe', 'Thicc & Bold', 'Ethereal Glow'];
 
@@ -43,6 +80,9 @@ export default function Editor() {
 
     setIsCloning(true);
     setResults([]);
+    setErrorToast(null);
+
+    abortControllerRef.current = new AbortController();
 
     try {
       const response = await fetch('/api/clone', {
@@ -51,33 +91,95 @@ export default function Editor() {
         body: JSON.stringify({
           inputs: [{ idea, imageBase64 }]
         }),
+        signal: abortControllerRef.current.signal,
       });
+
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
 
       const data = await response.json();
 
-      if (data.success && data.codes) {
+      if (response.status === 202 && data.cloneId) {
+        // QStash Background processing initiated
+        const cloneId = data.cloneId;
+        
+        pollIntervalRef.current = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`/api/clone/${cloneId}`);
+            
+            // 404 means the background job hasn't inserted the record yet
+            if (statusRes.status === 404) return;
+            
+            if (statusRes.ok) {
+               const statusData = await statusRes.json();
+               
+               if (statusData.status === 'completed' && statusData.data) {
+                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                 // Assuming the array of records is returned, map the generatedCode
+                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                 const generatedCodes = statusData.data.map((c: any) => c.generatedCode);
+                 setResults(generatedCodes);
+                 setIsCloning(false);
+               } else if (statusData.status === 'failed') {
+                 if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                 setErrorToast('Swarm generation failed during processing.');
+                 setIsCloning(false);
+               }
+            }
+          } catch (pollErr) {
+            console.error("Polling error:", pollErr);
+          }
+        }, 3000);
+
+      } else if (data.success && data.codes) {
+        // Synchronous fallback (if not 202)
         setResults(data.codes);
+        setIsCloning(false);
       } else {
-        alert('Swarm encountered an anomaly: ' + (data.error || 'Unknown error'));
+        setErrorToast('Swarm encountered an anomaly: ' + (data.error || 'Unknown error'));
+        setIsCloning(false);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Clone failed:', error);
-      alert('Failed to connect to VibeClone API.');
-    } finally {
+      if (error instanceof Error && error.name === 'AbortError') {
+        // Handled by cancelSwarm
+      } else {
+        setErrorToast('Failed to connect to VibeClone API. Request timed out or servers are busy.');
+      }
       setIsCloning(false);
+    } finally {
+      abortControllerRef.current = null;
+      // Note: We don't set isCloning(false) here because polling might be active
     }
   };
 
   return (
-    <main className="h-screen bg-[#050505] flex flex-col overflow-hidden text-gray-300 font-sans">
+    <main className="h-screen bg-[#050505] flex flex-col overflow-hidden text-gray-300 font-sans relative">
+      {errorToast && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 w-max max-w-[90vw]">
+            <AlertTriangle size={18} className="shrink-0" />
+            <span className="text-sm font-medium">{errorToast}</span>
+            <button aria-label="Dismiss error" onClick={() => setErrorToast(null)} className="p-1 hover:bg-red-500/20 rounded-lg transition-colors ml-4 shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
       <header className="h-14 border-b border-gray-800 bg-[#0A0F14] flex items-center justify-between px-4 z-20 shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="text-gray-500 hover:text-white transition-colors" title="Back to Dashboard">
             <ChevronRight size={18} className="rotate-180" />
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black">V</div>
-            <span className="font-bold text-white text-sm tracking-wide">Swarm<span className="text-cyan-500">Editor</span></span>
+            <Image 
+              src="/v-logo.png" 
+              alt="VibeClonePro Logo" 
+              width={24} 
+              height={24} 
+            />
+            <span className="font-bold text-white text-sm tracking-wide">Swarm<span className="text-cyan-400">Editor</span></span>
           </div>
         </div>
       </header>
@@ -146,15 +248,25 @@ export default function Editor() {
         {/* RIGHT COLUMN: PREVIEW OR CUSTOM LOADING STATE */}
         <div className="flex-1 bg-[#020202] relative flex flex-col">
           {isCloning ? (
-            <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center animate-in fade-in duration-500">
+            <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center animate-in fade-in duration-500 relative">
               <div className="w-24 h-24 mb-6 relative flex items-center justify-center rounded-full bg-black border border-cyan-500/20 shadow-[0_0_40px_rgba(6,182,212,0.15)] overflow-hidden">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/loading-vibe.gif" alt="Swarm Processing" className="w-[120%] h-[120%] object-cover object-center" />
               </div>
               <h2 className="text-xl font-bold text-cyan-400 mb-2 animate-pulse">Synchronizing AI Swarm...</h2>
-              <p className="text-gray-500 max-w-sm text-sm">
-                Extracting visual footprint. Routing payload to Claude 3.5 Sonnet and compiling Next.js architecture. Please stand by.
-              </p>
+              
+              <div className="h-8 flex items-center justify-center overflow-hidden mb-6">
+                 <p className="text-gray-400 text-sm font-medium animate-in slide-in-from-bottom-2 fade-in duration-300" key={loadingStep}>
+                   {loadingSteps[loadingStep]}
+                 </p>
+              </div>
+
+              <button 
+                onClick={cancelSwarm}
+                className="mt-4 px-6 py-2.5 rounded-lg border border-red-500/30 text-red-500 font-medium hover:bg-red-500/10 transition-colors flex items-center gap-2"
+              >
+                <X size={16} /> Cancel Sequence
+              </button>
             </div>
           ) : results.length > 0 ? (
             <div className="flex-1 flex flex-col p-6 z-10 h-full">

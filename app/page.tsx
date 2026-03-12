@@ -1,11 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Zap, MonitorPlay, Code2, Shield, Layers } from 'lucide-react';
+import Image from 'next/image';
+import { Zap, MonitorPlay, Code2, Shield, Layers, VolumeX, Volume2 } from 'lucide-react';
+import FeatureDeck from '@/components/FeatureDeck';
 
 export default function LandingPage() {
   const [activeVideo, setActiveVideo] = useState('/promo-video.MP4');
+  const [isMuted, setIsMuted] = useState(true);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
 
   const playlist = [
     { id: 'promo', title: 'System Overview', src: '/promo-video.MP4', icon: <MonitorPlay size={14} /> },
@@ -17,10 +28,20 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#050505] text-gray-200 font-sans selection:bg-cyan-500/30">
 
       {/* --- NAVIGATION --- */}
-      <nav className="fixed top-0 w-full h-16 border-b border-gray-800 bg-[#050505]/80 backdrop-blur-md z-50 flex items-center justify-between px-6">
+      <nav className="fixed top-0 w-full h-16 border-b border-gray-800 bg-black/80 backdrop-blur-md z-50 flex items-center justify-between px-6">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-[10px] font-bold text-black">V</div>
-          <span className="font-bold text-white text-sm tracking-wide">Vibe<span className="text-cyan-500">Clone</span>Pro</span>
+          <div className="relative w-9 h-9 mr-2 flex-shrink-0 rounded-md overflow-hidden">
+            <Image 
+              src="/v-logo.png" 
+              alt="VibeClone Pro Logo" 
+              fill 
+              className="object-contain" 
+              priority
+            />
+            {/* The Mix-Blend Overlay: Turns white pixels to exact cyan-400, leaves black alone */}
+            <div className="absolute inset-0 bg-cyan-400 mix-blend-multiply pointer-events-none"></div>
+          </div>
+          <span className="font-bold text-white text-xl tracking-wide">Vibe<span className="text-cyan-400">Clone</span>Pro</span>
         </div>
         <div className="flex items-center gap-6 text-sm font-medium">
           <Link href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
@@ -36,10 +57,30 @@ export default function LandingPage() {
 
         {/* THE LIGHTNING: Opacity cranked up to 80% */}
         <video
+          ref={videoRef}
           src="/vibe-intro.mp4"
           autoPlay loop muted playsInline
           className="absolute top-0 left-0 w-full h-full object-cover opacity-80 mix-blend-screen pointer-events-none"
         />
+
+        {/* Unmute Toggle Button */}
+        <button
+          onClick={toggleMute}
+          className="absolute top-6 right-6 z-50 flex items-center justify-center gap-2 px-4 py-2 bg-black/50 backdrop-blur-md border border-gray-700/50 rounded-full text-white/80 hover:text-white hover:bg-black/70 hover:border-cyan-500/50 transition-all font-medium text-sm shadow-[0_4px_20px_rgba(0,0,0,0.5)] group"
+          aria-label={isMuted ? "Unmute video" : "Mute video"}
+        >
+          {isMuted ? (
+            <>
+              <VolumeX size={18} className="text-gray-400 group-hover:text-cyan-400 transition-colors" />
+              <span>Unmute / Listen</span>
+            </>
+          ) : (
+            <>
+              <Volume2 size={18} className="text-cyan-400 animate-pulse" />
+              <span className="text-cyan-50">Mute</span>
+            </>
+          )}
+        </button>
 
         {/* Gradient overlay softened so the video punches through */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050505]/40 to-[#050505] pointer-events-none" />
@@ -50,8 +91,11 @@ export default function LandingPage() {
             <span className="text-[10px] text-cyan-400 font-mono uppercase tracking-widest">System Deployment Active</span>
           </div>
 
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 bg-gradient-to-b from-white to-gray-500 bg-clip-text text-transparent">
-            Bring Your Own Key.<br />Build in the Bunker.
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 flex flex-col leading-[1.2] md:leading-[1.2]">
+            <span className="text-white">Bring Your Own Key.</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-b from-gray-300 to-gray-600 tracking-tight">
+              Build, Deploy, Monetize.
+            </span>
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
@@ -104,6 +148,9 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* --- FEATURE DECK (HIGH CONVERTING COPY) --- */}
+      <FeatureDeck />
+
       {/* --- FEATURE GRID --- */}
       <section className="py-24 px-6 bg-[#020202] border-t border-gray-900">
         <div className="max-w-4xl mx-auto">
@@ -124,7 +171,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Parallel AI Swarm</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Fire multiple LLMs simultaneously. Compare outputs from Claude, OpenAI, and Gemini instantly.
+                Fire multiple LLMs simultaneously. Compare outputs from Claude, OpenAI, Gemini, and Grok instantly.
               </p>
             </div>
 
@@ -137,6 +184,24 @@ export default function LandingPage() {
                 Store your custom styles, color palettes, and component architecture securely in your private Neon DB.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* --- FOUNDER'S NOTE --- */}
+      <section className="max-w-3xl mx-auto py-24 px-6">
+        <div className="space-y-8">
+          <p className="text-gray-300 leading-relaxed text-lg">
+            &ldquo;The market is flooded with sandboxed toys and rented platforms. I built VibeClone Pro to give you the exact same deterministic firepower I use to build production-ready, global-scale architecture. Don&apos;t rent your dreams. Own your codebase, launch your infrastructure in minutes, and out-ship everyone.&rdquo;
+          </p>
+          <div className="pt-4">
+            <Image 
+              src="/trapper-signature.png" 
+              alt="Founder Signature" 
+              width={200} 
+              height={80} 
+              className="opacity-90"
+            />
           </div>
         </div>
       </section>

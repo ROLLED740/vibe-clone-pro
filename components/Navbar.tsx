@@ -1,15 +1,25 @@
 import React from 'react';
 import Link from 'next/link';
-import { Terminal } from 'lucide-react';
+import Image from 'next/image';
 
 export default function Navbar() {
   return (
-    <nav className="flex items-center justify-between px-6 py-4 bg-[#05080a] border-b border-gray-800 sticky top-0 z-50">
+    <nav className="flex items-center justify-between px-6 py-4 bg-black border-b border-gray-800 sticky top-0 z-50">
       <Link href="/" className="flex items-center gap-2 group">
-        <div className="w-8 h-8 rounded bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center text-xs font-bold text-black group-hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">
-          V
+        <div className="relative w-9 h-9 flex-shrink-0 rounded-md overflow-hidden group-hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-all">
+          <Image 
+            src="/v-logo.png" 
+            alt="VibeClonePro Logo" 
+            fill 
+            className="object-contain" 
+            priority
+          />
+          {/* The Mix-Blend Overlay: Turns white pixels to exact cyan-400, leaves black alone */}
+          <div className="absolute inset-0 bg-cyan-400 mix-blend-multiply pointer-events-none"></div>
         </div>
-        <span className="text-sm font-medium text-white tracking-wide">VibeClonePro</span>
+        <span className="text-xl font-bold text-white tracking-tight">
+          Vibe<span className="text-cyan-400">Clone</span>Pro
+        </span>
       </Link>
 
       <div className="hidden md:flex items-center gap-8 text-xs font-mono text-gray-400">

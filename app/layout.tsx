@@ -1,3 +1,4 @@
+import { ClerkProvider } from '@clerk/nextjs'
 import './globals.css'
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
@@ -6,8 +7,8 @@ import SmartNavbar from '@/components/SmartNavbar'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Vibe Clone Pro',
-  description: 'AI App Generator',
+  title: 'VibeClonePro',
+  description: 'Pro AI App Generator',
 }
 
 export default function RootLayout({
@@ -16,13 +17,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className + " bg-[#020502]"}>
-        {/* We use the SmartNavbar here. It will hide itself when you enter the app. */}
-        <SmartNavbar />
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={inter.className + " bg-[#020502]"} suppressHydrationWarning>
+          {/* We use the SmartNavbar here. It will hide itself when you enter the app. */}
+          <SmartNavbar />
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }
 /* cache buster 2 */

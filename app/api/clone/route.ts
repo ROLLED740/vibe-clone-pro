@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createXai } from '@ai-sdk/xai';
+import { generateText } from 'ai';
 import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 import { neon } from '@neondatabase/serverless';
@@ -13,6 +15,7 @@ import pino from 'pino';
 const logger = pino({ level: 'info' });
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const xai = createXai({ apiKey: process.env.XAI_API_KEY });
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
 
@@ -52,6 +55,15 @@ const retryClaude = (prompt: string) => pRetry(async () => {
     onFailedAttempt: (context) => logger.warn(`Claude failed (Attempt ${context.attemptNumber})`)
 });
 
+const fallbackGrok = async (prompt: string) => {
+    logger.info('Falling back to Grok...');
+    const { text } = await generateText({
+        model: xai('grok-2-latest'),
+        prompt,
+    });
+    return text;
+};
+
 const fallbackGemini = async (prompt: string) => {
     logger.info('Falling back to Gemini...');
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
@@ -89,7 +101,10 @@ export async function POST(req: NextRequest) {
 
             const variantPromises = variants.map(variant => {
                 const variantPrompt = `${basePrompt} Apply a '${variant}' stylistic twist to the CSS.`;
-                return retryClaude(variantPrompt).catch(() => fallbackGemini(variantPrompt)).then(code => ({ variant, code }));
+                return retryClaude(variantPrompt)
+                    .catch(() => fallbackGrok(variantPrompt))
+                    .catch(() => fallbackGemini(variantPrompt))
+                    .then(code => ({ variant, code }));
             });
 
             const generatedVariants = await Promise.all(variantPromises);
