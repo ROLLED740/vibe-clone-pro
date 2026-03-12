@@ -4,10 +4,10 @@ import * as dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 export default defineConfig({
-  schema: './db/schema.ts',
+  schema: './lib/db/schema.ts', // Adjust if your schema lives elsewhere
   out: './drizzle',
-  dialect: 'postgresql',
+  dialect: 'postgresql', // 'driver: "pg"' is deprecated
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: process.env.DATABASE_URL!, // 'connectionString' is deprecated
   },
 });
