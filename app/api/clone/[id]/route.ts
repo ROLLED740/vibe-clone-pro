@@ -6,9 +6,9 @@ import { clones } from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
+export const dynamic = 'force-dynamic';
+
 const logger = pino({ level: 'info' });
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
 
 type RouteContext = {
     params: Promise<{ id: string }>;
@@ -16,6 +16,13 @@ type RouteContext = {
 
 export async function GET(req: NextRequest, { params }: RouteContext) {
     try {
+        if (!process.env.DATABASE_URL) {
+            throw new Error('DATABASE_URL is not defined');
+        }
+
+        const sql = neon(process.env.DATABASE_URL);
+        const db = drizzle(sql);
+
         const { userId } = await auth();
         
         // Ensure user is signed in to check status
@@ -39,10 +46,6 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             return NextResponse.json({ status: 'pending', data: [] }, { status: 404 });
         }
 
-        // Technically, one `id` group from the swarm logic saves multiple variants as new UUID rows, 
-        // but let's assume `id` here fetches the parent payload, or the swarm logic has updated to group them by a `groupId`.
-        // Under current schema, ID is PK. So it's 1 row. Fetching by input ID or grouping might be necessary depending on QStash implementation.
-
         const record = cloneRecords[0];
 
         if (record.generatedCode.includes('FAILED') || record.generatedCode.includes('ERROR')) {
@@ -55,6 +58,9 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
         
     } catch (error: unknown) {
         logger.error(`Status check failed: ${String(error)}`);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : 'Internal Server Error' }, 
+            { status: 500 }
+        );
     }
 }

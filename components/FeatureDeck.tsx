@@ -3,7 +3,7 @@ import React from 'react';
 const features = [
   {
     title: "The Multi-Model Swarm",
-    description: "Don&apos;t rely on one glorified AI intern. VibeClonePro utilizes a fault-tolerant swarm (Gemini, Claude, Grok) that cross-validates intelligence and codes like a senior engineer racing death itself."
+    description: "Don't rely on one glorified AI intern. VibeClonePro utilizes a fault-tolerant swarm (Claude, OpenAI, Gemini, Grok) that cross-validates intelligence and codes like a senior engineer racing death itself."
   },
   {
     title: "4D OSINT Visualization",
@@ -15,11 +15,11 @@ const features = [
   },
   {
     title: "You OWN Everything You Build",
-    description: "We don&apos;t lease your dreams. Full-stack, database-backed, revenue-ready applications. We hand you the keys, the Next.js codebase, and the launch codes. No hostage fees."
+    description: "We don't lease your dreams. Full-stack, database-backed, revenue-ready applications. We hand you the keys, the Next.js codebase, and the launch codes. No hostage fees."
   },
   {
     title: "Built for Founders Who Refuse to Wait",
-    description: "No tech cofounder? No problem. Launch full production environments with Clerk auth and Stripe billing preloaded like a sniper&apos;s rifle."
+    description: "No tech cofounder? No problem. Launch full production environments with Clerk auth and Stripe billing preloaded like a sniper's rifle."
   }
 ];
 
@@ -31,7 +31,7 @@ export default function FeatureDeck() {
 
       <div className="max-w-4xl mx-auto relative z-10">
         <h2 className="text-4xl md:text-5xl font-black text-white mb-16 tracking-tight uppercase border-l-4 border-cyan-600 pl-6">
-          What You&apos;ll Unlock:
+          What You{"'"}ll Unlock:
         </h2>
 
         <div className="flex flex-col gap-6">

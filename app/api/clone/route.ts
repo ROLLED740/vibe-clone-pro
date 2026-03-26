@@ -12,17 +12,14 @@ import { clones, users } from '../../../db/schema';
 import { eq } from 'drizzle-orm';
 import pino from 'pino';
 
+export const dynamic = 'force-dynamic';
+
 const logger = pino({ level: 'info' });
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-const xai = createXai({ apiKey: process.env.XAI_API_KEY });
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
 
 const CONCURRENT_LIMIT = 15;
 const limit = pLimit(CONCURRENT_LIMIT);
 
-async function extractVibeWithVision(base64Image: string) {
+async function extractVibeWithVision(genAI: GoogleGenerativeAI, base64Image: string) {
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
     const prompt = `Analyze this UI design. Extract the exact color palette (hex codes), primary font styles, layout structure, and overall emotional tone. Output strict JSON: { "palette": ["#..."], "fonts": ["..."], "layout": "...", "tone": "..." }`;
 
@@ -40,7 +37,7 @@ async function extractVibeWithVision(base64Image: string) {
     }
 }
 
-const retryClaude = (prompt: string) => pRetry(async () => {
+const retryClaude = (anthropic: Anthropic, prompt: string) => pRetry(async () => {
     const res = await anthropic.messages.create({
         model: 'claude-3-5-sonnet-20241022',
         max_tokens: 8192,
@@ -55,7 +52,7 @@ const retryClaude = (prompt: string) => pRetry(async () => {
     onFailedAttempt: (context) => logger.warn(`Claude failed (Attempt ${context.attemptNumber})`)
 });
 
-const fallbackGrok = async (prompt: string) => {
+const fallbackGrok = async (xai: ReturnType<typeof createXai>, prompt: string) => {
     logger.info('Falling back to Grok...');
     const { text } = await generateText({
         model: xai('grok-2-latest'),
@@ -64,7 +61,7 @@ const fallbackGrok = async (prompt: string) => {
     return text;
 };
 
-const fallbackGemini = async (prompt: string) => {
+const fallbackGemini = async (genAI: GoogleGenerativeAI, prompt: string) => {
     logger.info('Falling back to Gemini...');
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
     const res = await model.generateContent(prompt);
@@ -73,6 +70,19 @@ const fallbackGemini = async (prompt: string) => {
 
 export async function POST(req: NextRequest) {
     try {
+        // Build-Safe Environment Validation
+        if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is missing');
+        if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is missing');
+        if (!process.env.XAI_API_KEY) throw new Error('XAI_API_KEY is missing');
+        if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is missing');
+
+        // Runtime Initializations
+        const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        const xai = createXai({ apiKey: process.env.XAI_API_KEY });
+        const sql = neon(process.env.DATABASE_URL);
+        const db = drizzle(sql);
+
         const { userId } = await auth();
         const safeUserId = userId || 'demo-user-123';
 
@@ -92,7 +102,7 @@ export async function POST(req: NextRequest) {
         const tasks = inputs.map(input => limit(async () => {
             let vibeData = { palette: [], fonts: [], layout: '', tone: input.idea || 'standard' };
             if (input.imageBase64) {
-                vibeData = await extractVibeWithVision(input.imageBase64);
+                vibeData = await extractVibeWithVision(genAI, input.imageBase64);
             }
 
             const basePrompt = `Build a Next.js 15 Tailwind component for: ${input.idea}. Match this vibe: Tone: ${vibeData.tone}, Colors: ${vibeData.palette.join(',')}, Fonts: ${vibeData.fonts.join(',')}. Rewrite all copy in this voice: ${JSON.stringify(customVoice)}. Output ONLY raw React code. Ensure you use 'export default function App()'.`;
@@ -101,9 +111,9 @@ export async function POST(req: NextRequest) {
 
             const variantPromises = variants.map(variant => {
                 const variantPrompt = `${basePrompt} Apply a '${variant}' stylistic twist to the CSS.`;
-                return retryClaude(variantPrompt)
-                    .catch(() => fallbackGrok(variantPrompt))
-                    .catch(() => fallbackGemini(variantPrompt))
+                return retryClaude(anthropic, variantPrompt)
+                    .catch(() => fallbackGrok(xai, variantPrompt))
+                    .catch(() => fallbackGemini(genAI, variantPrompt))
                     .then(code => ({ variant, code }));
             });
 
@@ -132,6 +142,6 @@ export async function POST(req: NextRequest) {
 
     } catch (error: unknown) {
         logger.error(`Swarm execution failed: ${String(error)}`);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || 'Swarm execution failed' }, { status: 500 });
     }
 }

@@ -7,7 +7,9 @@ import Image from 'next/image';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { desc, eq } from 'drizzle-orm';
-import { clones } from '../../db/schema';
+import { clones, users, subscriptions } from '../../db/schema';
+import ManageBillingButton from '../components/ManageBillingButton';
+import { checkIsAdmin } from '../../utils/auth';
 
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle(sql);
@@ -18,15 +20,48 @@ export default async function Dashboard() {
   const { userId } = await auth();
   const safeUserId = userId || 'demo-user-123';
 
+  const isAdmin = await checkIsAdmin();
+
   let recentClones: CloneRecord[] = [];
+  let isPro = false;
+  let isLifetime = false;
+  let stripeCustomerId: string | null = null;
+
   try {
     recentClones = await db.select()
       .from(clones)
       .where(eq(clones.userId, safeUserId))
       .orderBy(desc(clones.timestamp))
       .limit(10);
+
+    // Check if user is Pro
+    if (isAdmin) {
+      isPro = true;
+      isLifetime = true;
+      void isLifetime; // Satisfies linter that variable is technically used
+    } else {
+      const userSubs = await db.select()
+        .from(subscriptions)
+        .where(eq(subscriptions.userId, safeUserId))
+        .limit(1);
+
+      if (userSubs.length > 0 && (userSubs[0].status === 'active' || userSubs[0].status === 'trialing')) {
+        isPro = true;
+      }
+    }
+
+    // Get their stripe customer id
+    const userRecords = await db.select()
+      .from(users)
+      .where(eq(users.id, safeUserId))
+      .limit(1);
+
+    if (userRecords.length > 0) {
+      stripeCustomerId = userRecords[0].stripeCustomerId;
+    }
+
   } catch (error: unknown) {
-    console.error('Failed to fetch clones:', error);
+    console.error('Failed to fetch dashboard data:', error);
   }
 
   return (
@@ -34,11 +69,11 @@ export default async function Dashboard() {
       {/* SIDEBAR */}
       <aside className="w-64 border-r border-gray-800 bg-[#0A0F14] hidden md:flex flex-col">
         <div className="h-16 border-b border-gray-800 flex items-center px-6 gap-3">
-          <Image 
-            src="/v-logo.png" 
-            alt="VibeClonePro Logo" 
-            width={28} 
-            height={28} 
+          <Image
+            src="/v-logo.png"
+            alt="VibeClonePro Logo"
+            width={28}
+            height={28}
           />
           <span className="font-bold text-white text-lg tracking-tight">
             Vibe<span className="text-cyan-400">Clone</span>Pro
@@ -70,9 +105,14 @@ export default async function Dashboard() {
                 <h2 className="text-2xl font-bold text-white mb-1">Welcome back.</h2>
                 <p className="text-gray-500 text-sm">Deploy a new swarm sequence.</p>
               </div>
-              <Link href="/editor" aria-label="New Clone" className="px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-                <Plus size={18} /> New Clone
-              </Link>
+              <div className="flex items-center gap-4">
+                {isPro && stripeCustomerId && (
+                  <ManageBillingButton stripeCustomerId={stripeCustomerId} />
+                )}
+                <Link href="/editor" aria-label="New Clone" className="px-4 py-2 bg-cyan-500 text-black font-bold rounded-lg hover:bg-cyan-400 transition-colors flex items-center gap-2 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                  <Plus size={18} /> New Clone
+                </Link>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -93,8 +133,8 @@ export default async function Dashboard() {
                       {clone.timestamp ? new Date(clone.timestamp).toLocaleDateString() : 'Just now'}
                     </p>
                   </div>
-                  <Link 
-                    href={clone.previewUrl || '#'} 
+                  <Link
+                    href={clone.previewUrl || '#'}
                     aria-label={`View code for ${clone.variantName}`}
                     className="inline-flex items-center gap-2 text-cyan-400 text-sm font-medium hover:text-cyan-300 transition-colors"
                   >

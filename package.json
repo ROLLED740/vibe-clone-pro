@@ -24,6 +24,7 @@
     "@stripe/react-stripe-js": "^5.6.0",
     "@stripe/stripe-js": "^8.7.0",
     "@upstash/qstash": "^2.9.0",
+    "@vercel/edge-config": "^1.4.3",
     "ai": "^6.0.116",
     "autoprefixer": "^10.4.24",
     "axios": "^1.13.5",

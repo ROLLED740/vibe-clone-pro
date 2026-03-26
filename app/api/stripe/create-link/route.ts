@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// We cast to 'any' to bypass the strict version check causing the error
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { 
-  apiVersion: '2023-10-16' as any 
-});
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error('STRIPE_SECRET_KEY is not defined');
+    }
+
+    // We cast to 'any' to bypass the strict version check causing the error
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { 
+      // @ts-expect-error - bypassing strict version check
+      apiVersion: '2023-10-16'
+    });
+
     const { appName, price } = await req.json();
     
     // Create product
@@ -30,8 +37,11 @@ export async function POST(req: Request) {
     });
     
     return NextResponse.json({ url: paymentLink.url });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Stripe Error:', error);
-    return NextResponse.json({ error: 'Payment generation failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Payment generation failed' }, 
+      { status: 500 }
+    );
   }
 }

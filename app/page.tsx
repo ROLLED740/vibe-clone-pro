@@ -192,7 +192,7 @@ export default function LandingPage() {
       <section className="max-w-3xl mx-auto py-24 px-6">
         <div className="space-y-8">
           <p className="text-gray-300 leading-relaxed text-lg">
-            &ldquo;The market is flooded with sandboxed toys and rented platforms. I built VibeClone Pro to give you the exact same deterministic firepower I use to build production-ready, global-scale architecture. Don&apos;t rent your dreams. Own your codebase, launch your infrastructure in minutes, and out-ship everyone.&rdquo;
+            &ldquo;The market is flooded with sandboxed toys and rented platforms. I built VibeClone Pro to give you the exact same deterministic firepower I use to build production-ready, global-scale architecture. Don{"'"}t rent your dreams. Own your codebase, launch your infrastructure in minutes, and out-ship everyone.&rdquo;
           </p>
           <div className="pt-4">
             <Image 
