@@ -26,7 +26,7 @@
     "@upstash/qstash": "^2.9.0",
     "@vercel/edge-config": "^1.4.3",
     "ai": "^6.0.116",
-    "autoprefixer": "^10.4.24",
+    "autoprefixer": "^10.4.27",
     "axios": "^1.13.5",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
