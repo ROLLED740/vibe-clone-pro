@@ -5,6 +5,7 @@ import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2, AlertTriangle }
 import Link from 'next/link';
 import Image from 'next/image';
 import { Sandpack } from '@codesandbox/sandpack-react';
+import CopilotChat from '../../components/editor/CopilotChat';
 
 const loadingSteps = [
   "Extracting Vision constraints...",
@@ -226,6 +227,9 @@ export default function Editor() {
                 title="Architecture Prompt"
               />
             </div>
+
+            {/* VibeClone Copilot Integration */}
+            <CopilotChat />
           </div>
 
           <div className="p-4 border-t border-gray-800 bg-[#050505]">
