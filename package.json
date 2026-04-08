@@ -27,7 +27,7 @@
     "@vercel/edge-config": "^1.4.3",
     "ai": "^6.0.116",
     "autoprefixer": "^10.4.24",
-    "axios": "^1.13.5",
+    "axios": "^1.13.6",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.1",
