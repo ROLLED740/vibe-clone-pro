@@ -15,7 +15,7 @@ export async function createCheckoutSession(priceId: string) {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-03-25.dahlia',
     typescript: true,
   });
 
@@ -62,7 +62,7 @@ export async function createCustomerPortalSession(stripeCustomerId: string) {
   }
 
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2026-01-28.clover',
+    apiVersion: '2026-03-25.dahlia',
     typescript: true,
   });
 
