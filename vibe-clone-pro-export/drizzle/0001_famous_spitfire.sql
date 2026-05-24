@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "lifetime_access" boolean DEFAULT false NOT NULL;

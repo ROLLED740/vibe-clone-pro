@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Maintain dependencies for npm (Next.js, Drizzle, Clerk, etc.)
+  - package-ecosystem: "npm"
+    # Look for the package.json in the root directory
+    directory: "/"
+    # Check for updates once a week so you aren't spammed daily
+    schedule:
+      interval: "weekly"
+    # Limit the noise: only keep 5 update PRs open at a time
+    open-pull-requests-limit: 5
