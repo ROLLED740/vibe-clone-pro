@@ -3,8 +3,9 @@ import {
   firstFrameReady, gameReady, sendScore,
   loadSave, saveSave, onSystemPause,
 } from './ytgame-shim.js';
-import { BALLS, ballThumb } from './balls.js';
+import { BALLS } from './balls.js';
 import { THEMES, matFor } from './themes.js';
+import { initShop, consumeArmedBoosts, refreshShop } from './shop.js';
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -32,6 +33,7 @@ const PARAMS = new URLSearchParams(location.search);
 const LEVEL_LEN = Math.max(80, Number(PARAMS.get('levellen')) || 400);
 const DEV_START = Math.max(0, Number(PARAMS.get('start')) || 0);
 const LOOP_CHANCE = PARAMS.has('loops') ? 0.5 : 0.06;
+const DEV_COINS = Math.max(0, Number(PARAMS.get('coins')) || 0);
 
 // ---------------------------------------------------------------------------
 // Renderer / scene
@@ -311,6 +313,8 @@ let loop = null;            // { theta, z0 } while inside a loop-the-loop
 let lastSegIndex = -1;
 let level = 1;
 let coinsRun = 0;
+let coinValue = 1;          // 2 with the Coin Doubler boost
+let shieldCharges = 0;
 let save = { best: 0, coins: 0, ball: BALLS[0].id };
 
 const $ = (id) => document.getElementById(id);
@@ -324,7 +328,7 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause') };
+const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause'), shop: $('screen-shop') };
 function showScreen(name) {
   for (const [k, el] of Object.entries(screens)) el.classList.toggle('hidden', k !== name);
 }
@@ -340,16 +344,20 @@ function applyLevel(newLevel, quiet = false) {
 }
 
 function startRun() {
-  ballZ = -DEV_START;
+  const boosts = consumeArmedBoosts();
+  const startDist = DEV_START + (boosts.headstart ? 150 : 0);
+  coinValue = boosts.doubler ? 2 : 1;
+  shieldCharges = boosts.shield ? 1 : 0;
+  ballZ = -startDist;
   ballX = 0; ballY = BALL_R; velY = 0;
   grounded = true; fellSfx = false; loop = null;
-  speed = SPEED_START;
+  speed = Math.min(SPEED_MAX, SPEED_START + Math.min(startDist / 60, 5));
   coinsRun = 0;
   lastSegIndex = Math.floor(-ballZ / SEG_LEN);
   ball.rotation.set(0, 0, 0);
   resetTrack(lastSegIndex);
   ensureTrack(lastSegIndex);
-  applyLevel(Math.floor(DEV_START / LEVEL_LEN) + 1, true);
+  applyLevel(Math.floor(startDist / LEVEL_LEN) + 1, true);
   showScreen('none');
   state = S.PLAYING;
   sfxGo();
@@ -359,15 +367,41 @@ async function endRun() {
   state = S.OVER;
   sfxFall();
   const dist = Math.floor(-ballZ);
+  const distBonus = Math.floor(dist / 100);   // +1 coin per 100 m survived
+  const earned = coinsRun + distBonus;
   const newBest = dist > (save.best || 0);
   save.best = Math.max(save.best || 0, dist);
-  save.coins = (save.coins || 0) + coinsRun;
+  save.coins = (save.coins || 0) + earned;
   saveSave(save);
   sendScore(dist);
+  refreshShop();
   $('over-stats').innerHTML =
     `Distance: <b>${dist} m</b>${newBest ? ' — new best!' : ` (best ${save.best} m)`}<br>` +
-    `Level <b>${level}</b> · Coins <b>+${coinsRun}</b> (total ${save.coins})`;
+    `Level <b>${level}</b> · Coins <b>+${earned}</b>` +
+    (distBonus ? ` <small>(incl. +${distBonus} distance bonus)</small>` : '') +
+    ` · Bank <b data-coin-balance>${save.coins}</b>`;
   showScreen('over');
+}
+
+// Shield boost: instead of dying, get dropped back onto the next safe segment.
+function shieldRespawn() {
+  shieldCharges--;
+  showToast('🛡️ Shield saved you!');
+  let idx = Math.floor(-ballZ / SEG_LEN) + 2;
+  ensureTrack(idx);
+  while (true) {
+    const s = segments.get(idx);
+    if (s && s.type === 'safe' && !s.holes[0] && !s.holes[1] && !s.holes[2]) break;
+    idx++;
+    if (idx >= genIndex) ensureTrack(idx);
+  }
+  ballZ = segmentCenterZ(idx);
+  ballX = 0;
+  ballY = BALL_R + 3;
+  velY = 0;
+  grounded = false;
+  fellSfx = false;
+  lastSegIndex = idx;
 }
 
 function pauseGame() {
@@ -380,28 +414,6 @@ function resumeGame() {
   if (state !== S.PAUSED) return;
   state = stateBeforePause;
   showScreen('none');
-}
-
-// ---------------------------------------------------------------------------
-// Ball picker UI
-// ---------------------------------------------------------------------------
-function buildBallPickers() {
-  for (const rowId of ['ball-row-start', 'ball-row-over']) {
-    const row = $(rowId);
-    for (const def of BALLS) {
-      const chip = document.createElement('button');
-      chip.className = 'ball-chip';
-      chip.dataset.ball = def.id;
-      chip.title = def.name;
-      chip.appendChild(ballThumb(def));
-      chip.addEventListener('click', () => {
-        save.ball = setBall(def.id);
-        saveSave(save);
-        sfxCoin();
-      });
-      row.appendChild(chip);
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -534,7 +546,10 @@ function step(dt) {
           fellSfx = true;
           sfxFall();
         }
-        if (ballY < DEATH_Y) { endRun(); }
+        if (ballY < DEATH_Y) {
+          if (shieldCharges > 0) shieldRespawn();
+          else endRun();
+        }
       }
 
       ball.rotation.x -= (speed * dt) / BALL_R;
@@ -549,7 +564,7 @@ function step(dt) {
           const dx = coin.position.x - ballX, dz = wz - ballZ;
           if (dx * dx + dz * dz < 0.65 * 0.65 && Math.abs(ballY - BALL_R) < 1) {
             coin.visible = false;
-            coinsRun++;
+            coinsRun += coinValue;
             sfxCoin();
           }
         }
@@ -612,7 +627,17 @@ function loopFrame(t) {
 // ---------------------------------------------------------------------------
 (async () => {
   save = await loadSave();
-  buildBallPickers();
+  if (DEV_COINS) save.coins = Math.max(save.coins || 0, DEV_COINS);
+  initShop({
+    save,
+    persist: () => saveSave(save),
+    setBall,
+    showToast,
+    sfxBuy: sfxLevel,
+    sfxDeny: () => beep(220, 140, 0.2, 'square', 0.08),
+    showScreen,
+    isYouTube: typeof window.ytgame !== 'undefined',
+  });
   setBall(save.ball || BALLS[0].id);
   if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;
   hudLevel.textContent = 'Lv 1';
