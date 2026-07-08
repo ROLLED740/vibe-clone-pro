@@ -6,6 +6,7 @@ import {
 import { BALLS } from './balls.js';
 import { THEMES, matFor } from './themes.js';
 import { initShop, consumeArmedBoosts, refreshShop } from './shop.js';
+import { initCloud, cloudPush } from './cloud.js';
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -328,7 +329,12 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause'), shop: $('screen-shop') };
+const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause'), shop: $('screen-shop'), account: $('screen-account') };
+
+function persist() {
+  saveSave(save);
+  cloudPush(save);
+}
 function showScreen(name) {
   for (const [k, el] of Object.entries(screens)) el.classList.toggle('hidden', k !== name);
 }
@@ -372,7 +378,7 @@ async function endRun() {
   const newBest = dist > (save.best || 0);
   save.best = Math.max(save.best || 0, dist);
   save.coins = (save.coins || 0) + earned;
-  saveSave(save);
+  persist();
   sendScore(dist);
   refreshShop();
   $('over-stats').innerHTML =
@@ -607,6 +613,20 @@ function step(dt) {
   camera.lookAt(camX * 0.9, 0.6 + lift * 0.55, camZ - 12);
 
   renderer.render(scene, camera);
+
+  if (PARAMS.has('debug')) {
+    window.__rr = {
+      ballX, ballY, ballZ, camX, camZ,
+      camPos: camera.position.toArray(),
+      aspect: camera.aspect,
+      iw: window.innerWidth, ih: window.innerHeight,
+      canvasW: canvas.width, canvasH: canvas.height,
+      cssW: canvas.clientWidth, cssH: canvas.clientHeight,
+      ballVisible: ball.visible, ballParent: Boolean(ball.parent),
+      ballNdc: ball.position.clone().project(camera).toArray().map((v) => v.toFixed(3)),
+      ballWorld: ball.position.toArray().map((v) => v.toFixed(2)),
+    };
+  }
 }
 
 let lastT = performance.now();
@@ -630,13 +650,26 @@ function loopFrame(t) {
   if (DEV_COINS) save.coins = Math.max(save.coins || 0, DEV_COINS);
   initShop({
     save,
-    persist: () => saveSave(save),
+    persist,
     setBall,
     showToast,
     sfxBuy: sfxLevel,
     sfxDeny: () => beep(220, 140, 0.2, 'square', 0.08),
     showScreen,
     isYouTube: typeof window.ytgame !== 'undefined',
+  });
+  initCloud({
+    save,
+    persist,
+    showScreen,
+    showToast,
+    onSaveMerged: (merged) => {
+      Object.assign(save, merged);
+      saveSave(save);
+      setBall(save.ball || BALLS[0].id);
+      refreshShop();
+      if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;
+    },
   });
   setBall(save.ball || BALLS[0].id);
   if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;

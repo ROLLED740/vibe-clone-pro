@@ -3,7 +3,9 @@
 //   dist/artifact.html — body-only fragment for hosts that supply the <html> shell
 //
 // Usage:  npx esbuild game.js --bundle --minify --format=iife \
-//           --alias:three=./vendor/three.module.min.js --outfile=/tmp/rr-bundle.js
+//           --alias:three=./vendor/three.module.min.js \
+//           --alias:@supabase/supabase-js=./vendor/supabase.module.js \
+//           --outfile=/tmp/rr-bundle.js
 //         node build.mjs /tmp/rr-bundle.js
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
@@ -11,13 +13,18 @@ const bundlePath = process.argv[2];
 if (!bundlePath) { console.error('usage: node build.mjs <bundle.js>'); process.exit(1); }
 
 const html = readFileSync('index.html', 'utf8');
-const js = readFileSync(bundlePath, 'utf8');
+// Escape sequences that would terminate the inline <script> element early.
+const js = readFileSync(bundlePath, 'utf8')
+  .replaceAll('</script', '<\\/script')
+  .replaceAll('<!--', '<\\!--');
 
 // Drop the import map and the module script tag; inline the bundle instead.
+// Replacer FUNCTIONS are mandatory here: the bundle contains sequences like
+// "$&" that String.replace would otherwise expand, corrupting the code.
 let out = html
-  .replace(/<script type="importmap">[\s\S]*?<\/script>\n?/, '')
+  .replace(/<script type="importmap">[\s\S]*?<\/script>\n?/, () => '')
   .replace(/<script type="module" src="\.\/game\.js"><\/script>\n?/,
-    `<script>\n${js}\n</script>\n`);
+    () => `<script>\n${js}\n</script>\n`);
 
 mkdirSync('dist', { recursive: true });
 writeFileSync('dist/index.html', out);

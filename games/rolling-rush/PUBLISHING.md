@@ -12,7 +12,9 @@ Rebuild after code changes:
 
 ```bash
 npx esbuild game.js --bundle --minify --format=iife \
-  --alias:three=./vendor/three.module.min.js --outfile=/tmp/rr-bundle.js
+  --alias:three=./vendor/three.module.min.js \
+  --alias:@supabase/supabase-js=./vendor/supabase.module.js \
+  --outfile=/tmp/rr-bundle.js
 node build.mjs /tmp/rr-bundle.js
 cd dist && zip rolling-rush-itch.zip index.html
 ```

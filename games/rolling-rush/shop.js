@@ -2,7 +2,7 @@
 // Owns all picker/shop DOM; the game passes in its save object and callbacks.
 
 import { BALLS, ballThumb } from './balls.js';
-import { PAYMENTS_ENABLED, COIN_PACKS, purchasePack } from './payments.js';
+import { paymentsEnabled, COIN_PACKS, purchasePack } from './payments.js';
 
 export const BOOSTS = [
   { id: 'headstart', icon: '🚀', name: 'Head Start', desc: 'Begin the run 150 m in, already up to speed', price: 15 },
@@ -113,20 +113,19 @@ function buildCoinPacks() {
   // YouTube Playables forbids third-party payments — hide the section there.
   if (ctx.isYouTube) { section.remove(); return; }
   const list = $('pack-list');
+  const enabled = paymentsEnabled();
   for (const p of COIN_PACKS) {
     const card = document.createElement('button');
-    card.className = 'pack-card' + (PAYMENTS_ENABLED ? '' : ' disabled');
+    card.className = 'pack-card' + (enabled ? '' : ' disabled');
     card.innerHTML =
       `<b>● ${p.coins.toLocaleString()}</b><span>${p.label}</span>` +
-      `<span class="pack-price">${PAYMENTS_ENABLED ? p.priceLabel : 'COMING SOON'}</span>`;
+      `<span class="pack-price">${enabled ? p.priceLabel : 'COMING SOON'}</span>`;
     card.addEventListener('click', async () => {
       const res = await purchasePack(p.id);
-      if (res.ok) {
-        ctx.save.coins += p.coins;
-        ctx.persist();
-        ctx.sfxBuy();
-        ctx.showToast(`+${p.coins.toLocaleString()} coins!`);
-        refreshChips();
+      if (res.reason === 'checkout-opened') {
+        ctx.showToast('Finish checkout in the new tab — coins arrive right after payment');
+      } else if (res.reason === 'sign-in-required') {
+        ctx.showToast('Sign in (👤 on the main screen) to buy coins');
       } else {
         ctx.showToast('Real-money packs are coming in a future update!');
       }
