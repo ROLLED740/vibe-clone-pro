@@ -31,6 +31,8 @@ function mergeSaves(a, b) {
   };
 }
 
+let displayName = '';
+
 // Debounced upsert so every coin pickup doesn't hit the network.
 export function cloudPush(save) {
   if (!client || !user) return;
@@ -40,16 +42,26 @@ export function cloudPush(save) {
       await client.from('profiles').upsert({
         user_id: user.id,
         save,
+        display_name: displayName || user.email?.split('@')[0] || 'Player',
         updated_at: new Date().toISOString(),
       });
     } catch { /* offline is fine; localStorage still has it */ }
   }, 1500);
 }
 
+export async function fetchLeaderboard(limit = 20) {
+  if (!client) return [];
+  try {
+    const { data, error } = await client.rpc('get_leaderboard', { limit_n: limit });
+    return error ? [] : data;
+  } catch { return []; }
+}
+
 async function pullAndMerge() {
   try {
     const { data } = await client.from('profiles')
-      .select('save').eq('user_id', user.id).maybeSingle();
+      .select('save, display_name').eq('user_id', user.id).maybeSingle();
+    if (data?.display_name) displayName = data.display_name;
     const merged = mergeSaves(ctx.save, data?.save);
     ctx.onSaveMerged(merged);
     cloudPush(merged);
@@ -88,6 +100,8 @@ function refreshAccountUi() {
 async function handleAuth(mode) {
   const email = $('acct-email').value.trim();
   const password = $('acct-password').value;
+  const name = $('acct-name').value.trim();
+  if (name) displayName = name.slice(0, 20);
   if (!email || password.length < 6) {
     setStatus('Enter your email and a password of 6+ characters.');
     return;
@@ -103,14 +117,37 @@ async function handleAuth(mode) {
   setStatus('');
 }
 
+async function openLeaderboard() {
+  ctx.showScreen('leaderboard');
+  const list = $('lb-list');
+  list.innerHTML = '<li>Loading…</li>';
+  const rows = await fetchLeaderboard(20);
+  if (!rows.length) {
+    list.innerHTML = '<li>No scores yet — be the first!</li>';
+    return;
+  }
+  list.innerHTML = rows.map((r, i) => {
+    const medal = ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+    return `<li><span class="lb-rank">${medal}</span>` +
+      `<span class="lb-name">${String(r.display_name).replace(/[<>&]/g, '')}</span>` +
+      `<b>${r.best} m</b></li>`;
+  }).join('');
+  const mine = ctx.save.best || 0;
+  if (mine) list.insertAdjacentHTML('beforeend',
+    `<li class="lb-you"><span class="lb-rank">You</span><span class="lb-name">${user ? '' : '(sign in to compete)'}</span><b>${mine} m</b></li>`);
+}
+
 export function initCloud(context) {
   ctx = context;
   const btn = $('btn-account');
   if (!CLOUD_ENABLED()) {
-    // Not configured: hide the account entry point entirely.
+    // Not configured: hide the cloud entry points entirely.
     btn.classList.add('hidden');
+    $('btn-leaderboard').classList.add('hidden');
     return;
   }
+  $('btn-leaderboard').addEventListener('click', openLeaderboard);
+  $('btn-lb-close').addEventListener('click', () => ctx.showScreen('start'));
 
   client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 

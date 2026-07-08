@@ -4,6 +4,7 @@
 create table if not exists public.profiles (
   user_id uuid primary key references auth.users (id) on delete cascade,
   save jsonb not null default '{}'::jsonb,
+  display_name text,
   updated_at timestamptz not null default now()
 );
 
@@ -52,3 +53,21 @@ $$;
 
 revoke all on function public.claim_coin_credits() from anon;
 grant execute on function public.claim_coin_credits() to authenticated;
+
+-- Public leaderboard: names and best distances only, never emails or saves.
+create or replace function public.get_leaderboard(limit_n int default 20)
+returns table (display_name text, best bigint)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce(nullif(trim(display_name), ''), 'Player') as display_name,
+         coalesce((save->>'best')::bigint, 0) as best
+  from profiles
+  where coalesce((save->>'best')::bigint, 0) > 0
+  order by best desc
+  limit least(greatest(limit_n, 1), 100);
+$$;
+
+grant execute on function public.get_leaderboard(int) to anon, authenticated;

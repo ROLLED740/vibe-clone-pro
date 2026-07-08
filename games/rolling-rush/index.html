@@ -244,7 +244,24 @@
     color: #fff;
   }
   .acct-form input:focus { outline: none; border-color: #ffd23e; }
-  .acct-buttons { display: flex; gap: 10px; justify-content: center; }
+  .acct-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .lb {
+    list-style: none;
+    width: min(88vw, 380px);
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 15px;
+  }
+  .lb li {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 9px 14px;
+  }
+  .lb .lb-rank { width: 34px; font-weight: 800; }
+  .lb .lb-name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb b { color: #ffd23e; }
+  .lb .lb-you { border: 2px solid #ffd23e; }
 </style>
 <script type="importmap">
   { "imports": {
@@ -268,14 +285,25 @@
 
 <div class="screen" id="screen-start">
   <h1>Rolling Rush</h1>
-  <p>Drag (or use ◀ ▶ keys) to steer. Dodge the holes, hit the ramps, ride the loops — the world changes every level!</p>
+  <p>Drag to steer — push <b>up</b> to speed, pull <b>down</b> to brake (or ◀ ▶ ▲ ▼ keys). Dodge holes and boulders, hit boost pads, ride the loops — the world changes every level!</p>
   <div class="picker-label">Choose your ball</div>
   <div class="ball-row" id="ball-row-start"></div>
   <div class="arm-row" id="boost-arm-row"></div>
   <button class="btn" id="btn-play">PLAY</button>
   <button class="btn ghost" id="btn-shop">🛒 SHOP · <span data-coin-balance>0</span> coins</button>
-  <button class="btn ghost" id="btn-account">👤 Sign in</button>
+  <div class="acct-buttons">
+    <button class="btn ghost" id="btn-account">👤 Sign in</button>
+    <button class="btn ghost" id="btn-leaderboard">🏆 Top players</button>
+  </div>
   <p class="hint" id="best-line"></p>
+</div>
+
+<div class="screen hidden" id="screen-leaderboard">
+  <div class="shop-body">
+    <h2>🏆 Top Players</h2>
+    <ol class="lb" id="lb-list"></ol>
+    <button class="btn" id="btn-lb-close">DONE</button>
+  </div>
 </div>
 
 <div class="screen hidden" id="screen-account">
@@ -283,6 +311,7 @@
     <h2>Account</h2>
     <p>Sign in to sync your coins, skins, and best run across devices — and to buy coin packs.</p>
     <div id="account-signed-out" class="acct-form">
+      <input id="acct-name" type="text" maxlength="20" placeholder="Player name (for the leaderboard)">
       <input id="acct-email" type="email" placeholder="Email" autocomplete="email">
       <input id="acct-password" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
       <div class="acct-buttons">

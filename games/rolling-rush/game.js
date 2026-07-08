@@ -87,6 +87,80 @@ window.addEventListener('resize', resize);
 resize();
 
 // ---------------------------------------------------------------------------
+// Procedural track textures (wood planks, hazard-stripe rails, boost arrows)
+// ---------------------------------------------------------------------------
+function makeTexture(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function woodTexture(light) {
+  return makeTexture(128, 256, (g, w, h) => {
+    g.fillStyle = light ? '#cfa76e' : '#c29a62';
+    g.fillRect(0, 0, w, h);
+    for (let x = 0; x < w; x += 43) {          // plank seams run along the track
+      g.fillStyle = 'rgba(90,60,30,.35)';
+      g.fillRect(x, 0, 2, h);
+    }
+    for (let i = 0; i < 90; i++) {             // grain streaks
+      g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,235,200' : '110,75,40'},${0.04 + Math.random() * 0.07})`;
+      g.fillRect(Math.random() * w, Math.random() * h, 1.5, 8 + Math.random() * 40);
+    }
+  });
+}
+
+const stripeTex = makeTexture(64, 64, (g, w, h) => {
+  g.fillStyle = '#f5c02e';
+  g.fillRect(0, 0, w, h);
+  g.fillStyle = '#1c1c1e';
+  for (let i = -2; i < 6; i++) {
+    g.save();
+    g.translate(i * 24, 0);
+    g.beginPath();
+    g.moveTo(0, h); g.lineTo(12, h); g.lineTo(24 + 12, 0); g.lineTo(24, 0);
+    g.closePath(); g.fill();
+    g.restore();
+  }
+});
+stripeTex.repeat.set(2, 1);
+
+const boostTex = makeTexture(64, 128, (g, w, h) => {
+  g.fillStyle = '#2ec24e';
+  g.fillRect(0, 0, w, h);
+  g.fillStyle = '#eafff0';
+  for (const y of [30, 78]) {                  // chevrons pointing forward
+    g.beginPath();
+    g.moveTo(8, y + 22); g.lineTo(32, y); g.lineTo(56, y + 22);
+    g.lineTo(56, y + 36); g.lineTo(32, y + 14); g.lineTo(8, y + 36);
+    g.closePath(); g.fill();
+  }
+});
+
+const trailTex = makeTexture(64, 128, (g, w, h) => {
+  const grad = g.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, 'rgba(255,255,255,0)');
+  grad.addColorStop(1, 'rgba(255,255,255,.9)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, w, h);
+});
+
+// Glowing speed streak shown behind the ball while boosting.
+const trail = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.7, 4.5),
+  new THREE.MeshBasicMaterial({
+    map: trailTex, transparent: true, opacity: 0,
+    depthWrite: false, blending: THREE.AdditiveBlending,
+  }),
+);
+trail.rotation.x = -Math.PI / 2;
+scene.add(trail);
+
+// ---------------------------------------------------------------------------
 // Ball + skins
 // ---------------------------------------------------------------------------
 const ball = new THREE.Mesh(
@@ -122,20 +196,28 @@ function themeForSegment(i) {
 const skyTarget = new THREE.Color(THEMES[0].sky);
 const groundTarget = new THREE.Color(THEMES[0].ground);
 
+// Wood planks everywhere (the classic ball-runner look); themes tint them
+// subtly so each world still feels different.
 const laneMats = new Map();
 function laneMat(theme, alt) {
   const key = `${theme.name}-${alt}`;
   if (!laneMats.has(key)) {
-    laneMats.set(key, new THREE.MeshLambertMaterial({ color: theme.lanes[alt] }));
+    const tint = new THREE.Color(theme.lanes[alt]).lerp(new THREE.Color(0xffffff), 0.75);
+    laneMats.set(key, new THREE.MeshLambertMaterial({ map: woodTexture(alt === 0), color: tint }));
   }
   return laneMats.get(key);
 }
+const railMat = new THREE.MeshLambertMaterial({ map: stripeTex });
+const boostMat = new THREE.MeshLambertMaterial({ map: boostTex });
 
 // ---------------------------------------------------------------------------
 // Track segments (pooled meshes, procedural layout)
 // ---------------------------------------------------------------------------
 const laneGeo = new THREE.BoxGeometry(LANE_W, 0.5, SEG_LEN);
-const railGeo = new THREE.BoxGeometry(0.22, 0.34, SEG_LEN);
+const railGeo = new THREE.BoxGeometry(0.3, 0.42, SEG_LEN);
+const padGeo = new THREE.BoxGeometry(1.7, 0.08, 2.6);
+const boulderGeo = new THREE.SphereGeometry(0.55, 20, 14);
+const boulderMat = new THREE.MeshStandardMaterial({ color: 0xb03a3a, roughness: 0.35, metalness: 0.15 });
 const coinGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.09, 20);
 const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd23e, roughness: 0.25, metalness: 0.65 });
 const rampLen = Math.hypot(SEG_LEN, RAMP_H);
@@ -152,7 +234,8 @@ function loopMat(color) {
   return loopMats.get(color);
 }
 
-const segments = new Map(); // index -> { type, group, holes, coins, loopDone }
+const segments = new Map(); // index -> { type, group, holes, coins, pads, loopDone }
+const boulders = [];        // red balls rolling toward the player
 let genIndex = 0;           // next segment index to generate
 let runStartSeg = 0;
 let safeLane = 1;
@@ -207,8 +290,8 @@ function spawnSegment(i) {
       group.add(mesh);
     }
     for (const side of [-1, 1]) {
-      const rail = new THREE.Mesh(railGeo, matFor(theme.rail));
-      rail.position.set(side * (TRACK_W / 2 + 0.11), 0.12, 0);
+      const rail = new THREE.Mesh(railGeo, railMat);
+      rail.position.set(side * (TRACK_W / 2 + 0.15), 0.16, 0);
       group.add(rail);
     }
   }
@@ -227,6 +310,23 @@ function spawnSegment(i) {
     const decor = theme.decor();
     decor.position.set(side * (11 + Math.random() * 30), GROUND_Y, (Math.random() - 0.5) * SEG_LEN);
     group.add(decor);
+  }
+
+  // Boost pads and rolling boulders spice up safe stretches.
+  const pads = [];
+  if (type === 'safe' && i >= runStartSeg + SAFE_START_SEGMENTS && Math.random() < 0.09) {
+    const lane = Math.floor(Math.random() * LANES);
+    const pad = new THREE.Mesh(padGeo, boostMat);
+    pad.position.set((lane - 1) * LANE_W, 0.045, 0);
+    group.add(pad);
+    pads.push({ x: (lane - 1) * LANE_W, hit: false });
+  }
+  if (type === 'safe' && (i - runStartSeg) * SEG_LEN > 120 && Math.random() < 0.08) {
+    const boulder = new THREE.Mesh(boulderGeo, boulderMat);
+    const lane = Math.floor(Math.random() * LANES);
+    boulder.position.set((lane - 1) * LANE_W, 0.55, segmentCenterZ(i));
+    scene.add(boulder);
+    boulders.push(boulder);
   }
 
   // Coin lines appear on plain safe stretches.
@@ -249,7 +349,7 @@ function spawnSegment(i) {
   }
 
   scene.add(group);
-  segments.set(i, { type, group, holes, coins, loopDone: false });
+  segments.set(i, { type, group, holes, coins, pads, loopDone: false });
 }
 
 function ensureTrack(currentIndex) {
@@ -265,6 +365,8 @@ function ensureTrack(currentIndex) {
 function resetTrack(startSeg) {
   for (const seg of segments.values()) scene.remove(seg.group);
   segments.clear();
+  for (const b of boulders) scene.remove(b);
+  boulders.length = 0;
   genIndex = startSeg;
   runStartSeg = startSeg;
   safeLane = 1;
@@ -329,7 +431,10 @@ function showToast(text) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause'), shop: $('screen-shop'), account: $('screen-account') };
+const screens = {
+  start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause'),
+  shop: $('screen-shop'), account: $('screen-account'), leaderboard: $('screen-leaderboard'),
+};
 
 function persist() {
   saveSave(save);
@@ -357,6 +462,7 @@ function startRun() {
   ballZ = -startDist;
   ballX = 0; ballY = BALL_R; velY = 0;
   grounded = true; fellSfx = false; loop = null;
+  throttle = 0; boostTimer = 0;
   speed = Math.min(SPEED_MAX, SPEED_START + Math.min(startDist / 60, 5));
   coinsRun = 0;
   lastSegIndex = Math.floor(-ballZ / SEG_LEN);
@@ -425,17 +531,23 @@ function resumeGame() {
 // ---------------------------------------------------------------------------
 // Input: horizontal drag (touch or mouse) + arrow/A-D keys
 // ---------------------------------------------------------------------------
-let dragging = false, lastPointerX = 0, keyDir = 0;
+let dragging = false, lastPointerX = 0, lastPointerY = 0, keyDir = 0;
+let throttle = 0, keyThrottle = 0, boostTimer = 0;
 
 canvas.addEventListener('pointerdown', (e) => {
   dragging = true;
   lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
 });
 window.addEventListener('pointermove', (e) => {
   if (!dragging || state !== S.PLAYING) return;
   const dx = e.clientX - lastPointerX;
+  const dy = e.clientY - lastPointerY;
   lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
   ballX += dx * (9 / Math.min(window.innerWidth, 900));
+  // Push forward to speed up, pull back to brake (Going Balls-style).
+  throttle = Math.max(-0.6, Math.min(1, throttle - dy * (4 / Math.min(window.innerHeight, 900))));
 });
 window.addEventListener('pointerup', () => { dragging = false; });
 window.addEventListener('pointercancel', () => { dragging = false; });
@@ -443,6 +555,8 @@ window.addEventListener('pointercancel', () => { dragging = false; });
 window.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyDir = -1;
   else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyDir = 1;
+  else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyThrottle = 1;
+  else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keyThrottle = -0.6;
   else if (e.key === ' ' || e.key === 'Enter') {
     if (state === S.MENU || state === S.OVER) startRun();
     else if (state === S.PAUSED) resumeGame();
@@ -452,6 +566,7 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => {
   if (['ArrowLeft', 'a', 'A', 'ArrowRight', 'd', 'D'].includes(e.key)) keyDir = 0;
+  if (['ArrowUp', 'w', 'W', 'ArrowDown', 's', 'S'].includes(e.key)) keyThrottle = 0;
 });
 
 $('btn-play').addEventListener('click', startRun);
@@ -473,11 +588,23 @@ function laneAt(x) {
 const UP = new THREE.Vector3(0, 1, 0);
 let camX = 0, camZ = 7;
 
+function die() {
+  if (shieldCharges > 0) shieldRespawn();
+  else endRun();
+}
+
 function step(dt) {
+  // Effective speed = base ramp + player throttle + boost-pad burst.
+  boostTimer = Math.max(0, boostTimer - dt);
+  if (!dragging) throttle *= Math.exp(-dt * 1.6);
+  const extra = Math.max(-0.6, Math.min(1, throttle + keyThrottle)) * 8
+    + (boostTimer > 0 ? 11 : 0);
+  const effSpeed = Math.max(4, speed + extra);
+
   if (state === S.PLAYING) {
     if (loop) {
       // Scripted loop-the-loop: a vertical circle in the y-z plane.
-      const w = Math.max(speed, 15) / LOOP_R;
+      const w = Math.max(effSpeed, 15) / LOOP_R;
       loop.theta += w * dt;
       ballX += (0 - ballX) * Math.min(1, dt * 8);
       ballY = BALL_R + LOOP_R * (1 - Math.cos(loop.theta));
@@ -491,7 +618,7 @@ function step(dt) {
         speed = Math.min(SPEED_MAX, speed + 1.5);
       }
     } else {
-      ballZ -= speed * dt;
+      ballZ -= effSpeed * dt;
       speed = Math.min(SPEED_MAX, speed + SPEED_RAMP * dt);
       if (grounded || ballY > 0) {   // steer on the ground and mid-jump, not once fallen in
         ballX += keyDir * 7 * dt;
@@ -509,7 +636,7 @@ function step(dt) {
         if (prev && prev.type === 'ramp' && grounded) {
           speed = Math.min(SPEED_MAX, speed + 3);
           const range = 2 * SEG_LEN + 3;
-          velY = Math.max(7, Math.min(17, (GRAVITY * range) / (2 * speed)));
+          velY = Math.max(7, Math.min(17, (GRAVITY * range) / (2 * Math.max(effSpeed, speed))));
           grounded = false;
           sfxJump();
         }
@@ -552,13 +679,39 @@ function step(dt) {
           fellSfx = true;
           sfxFall();
         }
-        if (ballY < DEATH_Y) {
-          if (shieldCharges > 0) shieldRespawn();
-          else endRun();
+        if (ballY < DEATH_Y) die();
+      }
+
+      // Boost pads: hit one while grounded for a burst of speed.
+      if (grounded && seg && seg.pads.length) {
+        const wz = seg.group.position.z;
+        for (const pad of seg.pads) {
+          if (!pad.hit && Math.abs(pad.x - ballX) < 1.05 && Math.abs(wz - ballZ) < 1.4) {
+            pad.hit = true;
+            boostTimer = 1.3;
+            sfxJump();
+          }
         }
       }
 
-      ball.rotation.x -= (speed * dt) / BALL_R;
+      // Rolling boulders: dodge them or die.
+      for (let i = boulders.length - 1; i >= 0; i--) {
+        const b = boulders[i];
+        b.position.z += 6.5 * dt;
+        b.rotation.x += (6.5 * dt) / 0.55;
+        if (b.position.z > ballZ + 12) {
+          scene.remove(b);
+          boulders.splice(i, 1);
+          continue;
+        }
+        const dx = b.position.x - ballX, dz = b.position.z - ballZ;
+        if (state === S.PLAYING && ballY < 1.4 && dx * dx + dz * dz < 0.9 * 0.9) {
+          die();
+          break;
+        }
+      }
+
+      ball.rotation.x -= (effSpeed * dt) / BALL_R;
 
       // Coin pickups near the ball.
       for (const idx of [segIndex, segIndex + 1]) {
@@ -606,6 +759,12 @@ function step(dt) {
   }
 
   ball.position.set(ballX, ballY, ballZ);
+
+  // Speed streak: fades in with extra speed, hugs the track behind the ball.
+  const glow = state === S.PLAYING && grounded ? Math.max(0, extra) / 19 : 0;
+  trail.material.opacity += (Math.min(0.75, glow) - trail.material.opacity) * Math.min(1, dt * 8);
+  trail.position.set(ballX, 0.06, ballZ + 2.6);
+
   camX += (ballX * 0.55 - camX) * Math.min(1, dt * 5);
   camZ += (ballZ + 7 - camZ) * Math.min(1, dt * 6);
   const lift = Math.max(0, ballY - BALL_R);
