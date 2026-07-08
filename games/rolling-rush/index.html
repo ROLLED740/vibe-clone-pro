@@ -21,7 +21,7 @@
     position: fixed;
     top: calc(10px + env(safe-area-inset-top));
     left: 0; right: 0;
-    display: flex; justify-content: space-between;
+    display: flex; justify-content: space-between; gap: 8px;
     padding: 0 16px;
     pointer-events: none;
     color: #fff;
@@ -37,6 +37,27 @@
   }
   .hud .coin::before { content: "●"; color: #ffd23e; margin-right: 6px; }
 
+  #toast {
+    position: fixed;
+    top: 22%;
+    left: 50%;
+    transform: translateX(-50%) scale(.8);
+    background: rgba(0,0,0,.45);
+    color: #ffd23e;
+    font-weight: 800;
+    font-size: clamp(18px, 3.6vh, 30px);
+    letter-spacing: .06em;
+    padding: 12px 28px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+    text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    z-index: 5;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
   .screen {
     position: fixed; inset: 0;
     display: flex; flex-direction: column;
@@ -45,7 +66,7 @@
     background: rgba(16, 8, 42, .62);
     color: #fff;
     text-align: center;
-    padding: 24px;
+    padding: 24px 0;
     backdrop-filter: blur(3px);
     z-index: 10;
   }
@@ -59,7 +80,7 @@
     filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
   }
   .screen h2 { font-size: clamp(24px, 5vh, 40px); }
-  .screen p { font-size: clamp(14px, 2.6vh, 18px); opacity: .9; max-width: 34ch; line-height: 1.45; }
+  .screen p { font-size: clamp(14px, 2.6vh, 18px); opacity: .9; max-width: 34ch; line-height: 1.45; padding: 0 16px; }
   .screen .stats { font-size: clamp(16px, 3vh, 22px); line-height: 1.6; }
   .screen .stats b { color: #ffd23e; }
   .btn {
@@ -76,6 +97,40 @@
   }
   .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
   .hint { font-size: 13px; opacity: .65; }
+
+  .picker-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .7;
+    margin-top: 6px;
+  }
+  .ball-row {
+    pointer-events: auto;
+    display: flex; gap: 8px;
+    max-width: min(92vw, 560px);
+    overflow-x: auto;
+    padding: 6px 12px 10px;
+    scrollbar-width: thin;
+  }
+  .ball-chip {
+    flex: 0 0 auto;
+    width: 54px; height: 54px;
+    padding: 3px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25);
+    background: rgba(0,0,0,.25);
+    cursor: pointer;
+    transition: transform .1s ease, border-color .1s ease;
+  }
+  .ball-chip canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+  .ball-chip:active { transform: scale(.92); }
+  .ball-chip.selected {
+    border-color: #ffd23e;
+    box-shadow: 0 0 12px rgba(255, 210, 62, .55);
+    transform: scale(1.08);
+  }
 </style>
 <script type="importmap">
   { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -88,12 +143,17 @@
 
 <div class="hud">
   <div class="pill" id="hud-dist">0 m</div>
+  <div class="pill" id="hud-level">Lv 1</div>
   <div class="pill coin" id="hud-coins">0</div>
 </div>
 
+<div id="toast"></div>
+
 <div class="screen" id="screen-start">
   <h1>Rolling Rush</h1>
-  <p>Drag (or use ◀ ▶ keys) to steer the ball.<br>Dodge the holes, grab the coins,<br>and see how far you can roll!</p>
+  <p>Drag (or use ◀ ▶ keys) to steer. Dodge the holes, hit the ramps, ride the loops — the world changes every level!</p>
+  <div class="picker-label">Choose your ball</div>
+  <div class="ball-row" id="ball-row-start"></div>
   <button class="btn" id="btn-play">PLAY</button>
   <p class="hint" id="best-line"></p>
 </div>
@@ -101,6 +161,7 @@
 <div class="screen hidden" id="screen-over">
   <h2>You fell!</h2>
   <p class="stats" id="over-stats"></p>
+  <div class="ball-row" id="ball-row-over"></div>
   <button class="btn" id="btn-retry">PLAY AGAIN</button>
 </div>
 

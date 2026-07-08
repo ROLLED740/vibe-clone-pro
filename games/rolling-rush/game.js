@@ -3,6 +3,8 @@ import {
   firstFrameReady, gameReady, sendScore,
   loadSave, saveSave, onSystemPause,
 } from './ytgame-shim.js';
+import { BALLS, ballThumb } from './balls.js';
+import { THEMES, matFor } from './themes.js';
 
 // ---------------------------------------------------------------------------
 // Tuning
@@ -19,8 +21,17 @@ const SPEED_START = 9;
 const SPEED_MAX = 24;
 const SPEED_RAMP = 0.18;             // units/sec gained per second
 const GRAVITY = 30;
-const SAFE_START_SEGMENTS = 8;       // hazard-free runway at the start
-const HAZARD_GAP = 2;                // safe segments enforced after a hazard
+const SAFE_START_SEGMENTS = 8;       // hazard-free runway at the start of a run
+const RAMP_H = 1.2;                  // ramp rise over one segment
+const LOOP_R = 2.3;                  // loop-the-loop radius
+const GROUND_Y = -10;
+const DEATH_Y = -9;
+
+// Dev/test helpers: ?levellen=80 shortens levels, ?start=1200 starts mid-run.
+const PARAMS = new URLSearchParams(location.search);
+const LEVEL_LEN = Math.max(80, Number(PARAMS.get('levellen')) || 400);
+const DEV_START = Math.max(0, Number(PARAMS.get('start')) || 0);
+const LOOP_CHANCE = PARAMS.has('loops') ? 0.5 : 0.06;
 
 // ---------------------------------------------------------------------------
 // Renderer / scene
@@ -30,15 +41,38 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x2b1a5e);
-scene.fog = new THREE.Fog(0x2b1a5e, 28, 95);
+scene.background = new THREE.Color(THEMES[0].sky);
+scene.fog = new THREE.Fog(THEMES[0].sky, 28, 95);
 
-const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 220);
 
-scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x3a2a66, 1.1));
+scene.add(new THREE.HemisphereLight(0xffffff, 0x777788, 1.15));
 const sun = new THREE.DirectionalLight(0xffffff, 1.6);
 sun.position.set(4, 10, 6);
 scene.add(sun);
+
+// Ground far below the floating track, re-tinted per theme.
+const groundMat = new THREE.MeshLambertMaterial({ color: THEMES[0].ground });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(500, 500), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = GROUND_Y;
+scene.add(ground);
+
+// Snow flurry, shown only on snow/ice themes.
+const SNOW_N = 500;
+const snowPos = new Float32Array(SNOW_N * 3);
+for (let i = 0; i < SNOW_N; i++) {
+  snowPos[i * 3] = (Math.random() - 0.5) * 50;
+  snowPos[i * 3 + 1] = Math.random() * 22 - 2;
+  snowPos[i * 3 + 2] = -Math.random() * 80;
+}
+const snowGeo = new THREE.BufferGeometry();
+snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({
+  color: 0xffffff, size: 0.16, transparent: true, opacity: 0.9,
+}));
+snow.visible = false;
+scene.add(snow);
 
 function resize() {
   const w = window.innerWidth, h = window.innerHeight;
@@ -50,29 +84,49 @@ window.addEventListener('resize', resize);
 resize();
 
 // ---------------------------------------------------------------------------
-// Ball
+// Ball + skins
 // ---------------------------------------------------------------------------
-function makeBallTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
-  const colors = ['#ff5d73', '#ffd23e', '#4ecdc4', '#f7f7ff'];
-  for (let y = 0; y < 2; y++) {
-    for (let x = 0; x < 2; x++) {
-      g.fillStyle = colors[y * 2 + x];
-      g.fillRect(x * 64, y * 64, 64, 64);
-    }
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 const ball = new THREE.Mesh(
   new THREE.SphereGeometry(BALL_R, 28, 20),
-  new THREE.MeshStandardMaterial({ map: makeBallTexture(), roughness: 0.35, metalness: 0.05 }),
+  new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05 }),
 );
 scene.add(ball);
+
+const texCache = new Map();
+function setBall(id) {
+  const def = BALLS.find((b) => b.id === id) || BALLS[0];
+  if (!texCache.has(def.id)) {
+    const tex = new THREE.CanvasTexture(def.make());
+    tex.colorSpace = THREE.SRGBColorSpace;
+    texCache.set(def.id, tex);
+  }
+  ball.material.map = texCache.get(def.id);
+  ball.material.roughness = def.roughness ?? 0.35;
+  ball.material.metalness = def.metalness ?? 0.05;
+  ball.material.needsUpdate = true;
+  document.querySelectorAll('.ball-chip').forEach((el) => {
+    el.classList.toggle('selected', el.dataset.ball === def.id);
+  });
+  return def.id;
+}
+
+// ---------------------------------------------------------------------------
+// Themes / levels
+// ---------------------------------------------------------------------------
+function themeForSegment(i) {
+  return THEMES[Math.floor((i * SEG_LEN) / LEVEL_LEN) % THEMES.length];
+}
+const skyTarget = new THREE.Color(THEMES[0].sky);
+const groundTarget = new THREE.Color(THEMES[0].ground);
+
+const laneMats = new Map();
+function laneMat(theme, alt) {
+  const key = `${theme.name}-${alt}`;
+  if (!laneMats.has(key)) {
+    laneMats.set(key, new THREE.MeshLambertMaterial({ color: theme.lanes[alt] }));
+  }
+  return laneMats.get(key);
+}
 
 // ---------------------------------------------------------------------------
 // Track segments (pooled meshes, procedural layout)
@@ -81,76 +135,105 @@ const laneGeo = new THREE.BoxGeometry(LANE_W, 0.5, SEG_LEN);
 const railGeo = new THREE.BoxGeometry(0.22, 0.34, SEG_LEN);
 const coinGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.09, 20);
 const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd23e, roughness: 0.25, metalness: 0.65 });
-const railMat = new THREE.MeshLambertMaterial({ color: 0xffb347 });
-
-const laneMats = new Map(); // hue bucket -> material, so the track slowly shifts color
-function laneMat(index) {
-  const bucket = (Math.floor(index / 6) % 12) * 2 + (index % 2);
-  if (!laneMats.has(bucket)) {
-    const hue = (0.62 + Math.floor(index / 6) * 0.045) % 1;
-    const light = index % 2 === 0 ? 0.58 : 0.5;
-    laneMats.set(bucket, new THREE.MeshLambertMaterial({
-      color: new THREE.Color().setHSL(hue, 0.55, light),
+const rampLen = Math.hypot(SEG_LEN, RAMP_H);
+const rampGeo = new THREE.BoxGeometry(TRACK_W, 0.5, rampLen);
+// A thin torus stretched along its axis reads as a curled track ribbon.
+const loopGeo = new THREE.TorusGeometry(LOOP_R + BALL_R, 0.3, 10, 44);
+const loopMats = new Map();
+function loopMat(color) {
+  if (!loopMats.has(color)) {
+    loopMats.set(color, new THREE.MeshLambertMaterial({
+      color, transparent: true, opacity: 0.55, side: THREE.DoubleSide,
     }));
   }
-  return laneMats.get(bucket);
+  return loopMats.get(color);
 }
 
-const segments = new Map(); // index -> { group, holes, coins }
+const segments = new Map(); // index -> { type, group, holes, coins, loopDone }
 let genIndex = 0;           // next segment index to generate
+let runStartSeg = 0;
 let safeLane = 1;
-let hazardCooldown = 0;
-let coinRun = 0;            // remaining segments in the current coin line
+let featureCooldown = 0;
+let upcoming = [];          // queued segment types for multi-segment features
+let coinRun = 0;
 let coinLane = 1;
 
 function segmentCenterZ(i) { return -(i + 0.5) * SEG_LEN; }
 
 function spawnSegment(i) {
+  const theme = themeForSegment(i);
   const holes = [false, false, false];
-  let isHazard = false;
+  let type = 'safe';
+  const meters = i * SEG_LEN;
 
-  if (i >= SAFE_START_SEGMENTS && hazardCooldown <= 0) {
-    const meters = i * SEG_LEN;
-    const p = Math.min(0.25 + meters / 900, 0.55);
-    if (Math.random() < p) {
-      isHazard = true;
-      // Keep a reachable safe lane: it only ever shifts one lane per hazard.
-      safeLane = Math.max(0, Math.min(LANES - 1, safeLane + (Math.floor(Math.random() * 3) - 1)));
-      const holeCount = Math.random() < 0.45 ? 2 : 1;
-      const candidates = [0, 1, 2].filter((l) => l !== safeLane);
-      if (holeCount === 2) {
-        holes[candidates[0]] = holes[candidates[1]] = true;
-      } else {
-        holes[candidates[Math.floor(Math.random() * candidates.length)]] = true;
-      }
-      hazardCooldown = HAZARD_GAP;
-    }
+  if (upcoming.length) {
+    type = upcoming.shift();
+  } else if (i >= runStartSeg + SAFE_START_SEGMENTS && featureCooldown <= 0) {
+    const pHole = Math.min(0.26 + meters / 1100, 0.5);
+    const r = Math.random();
+    if (r < pHole) type = 'holes';
+    else if (r < pHole + 0.11) { type = 'ramp'; upcoming = ['gap', 'gap', 'safe']; }
+    else if (r < pHole + 0.11 + LOOP_CHANCE && meters > 200) type = 'loop';
+    if (type !== 'safe') featureCooldown = upcoming.length + 3;
   }
-  if (!isHazard) hazardCooldown--;
+  featureCooldown--;
+
+  if (type === 'holes') {
+    // Keep a reachable safe lane: it only ever shifts one lane per hazard.
+    safeLane = Math.max(0, Math.min(LANES - 1, safeLane + (Math.floor(Math.random() * 3) - 1)));
+    const candidates = [0, 1, 2].filter((l) => l !== safeLane);
+    if (Math.random() < 0.45) holes[candidates[0]] = holes[candidates[1]] = true;
+    else holes[candidates[Math.floor(Math.random() * candidates.length)]] = true;
+  } else if (type === 'gap') {
+    holes[0] = holes[1] = holes[2] = true;
+  }
 
   const group = new THREE.Group();
   group.position.z = segmentCenterZ(i);
 
-  for (let lane = 0; lane < LANES; lane++) {
-    if (holes[lane]) continue;
-    const mesh = new THREE.Mesh(laneGeo, laneMat(i));
-    mesh.position.set((lane - 1) * LANE_W, -0.25, 0);
-    group.add(mesh);
-  }
-  for (const side of [-1, 1]) {
-    const rail = new THREE.Mesh(railGeo, railMat);
-    rail.position.set(side * (TRACK_W / 2 + 0.11), 0.12, 0);
-    group.add(rail);
+  if (type === 'ramp') {
+    const ramp = new THREE.Mesh(rampGeo, matFor(theme.accent));
+    ramp.rotation.x = Math.atan2(RAMP_H, SEG_LEN);
+    ramp.position.y = RAMP_H / 2 - 0.25;
+    group.add(ramp);
+  } else if (type !== 'gap') {
+    for (let lane = 0; lane < LANES; lane++) {
+      if (holes[lane]) continue;
+      const mesh = new THREE.Mesh(laneGeo, laneMat(theme, i % 2));
+      mesh.position.set((lane - 1) * LANE_W, -0.25, 0);
+      group.add(mesh);
+    }
+    for (const side of [-1, 1]) {
+      const rail = new THREE.Mesh(railGeo, matFor(theme.rail));
+      rail.position.set(side * (TRACK_W / 2 + 0.11), 0.12, 0);
+      group.add(rail);
+    }
   }
 
-  // Coin lines appear on safe stretches.
+  if (type === 'loop') {
+    const torus = new THREE.Mesh(loopGeo, loopMat(theme.accent));
+    torus.scale.z = 3;                 // ribbon just wider than the ball
+    torus.rotation.y = Math.PI / 2;
+    torus.position.y = LOOP_R + BALL_R;
+    group.add(torus);
+  }
+
+  // Side scenery on the ground far below.
+  if (Math.random() < 0.55) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const decor = theme.decor();
+    decor.position.set(side * (11 + Math.random() * 30), GROUND_Y, (Math.random() - 0.5) * SEG_LEN);
+    group.add(decor);
+  }
+
+  // Coin lines appear on plain safe stretches.
   const coins = [];
-  if (!isHazard && i >= SAFE_START_SEGMENTS) {
+  if (type === 'safe' && i >= runStartSeg + SAFE_START_SEGMENTS) {
     if (coinRun <= 0 && Math.random() < 0.22) {
       coinRun = 3 + Math.floor(Math.random() * 3);
       coinLane = Math.random() < 0.6 ? safeLane : Math.floor(Math.random() * LANES);
     }
-    if (coinRun > 0 && !holes[coinLane]) {
+    if (coinRun > 0) {
       const coin = new THREE.Mesh(coinGeo, coinMat);
       coin.rotation.x = Math.PI / 2;
       coin.position.set((coinLane - 1) * LANE_W, 0.55, 0);
@@ -158,12 +241,12 @@ function spawnSegment(i) {
       coins.push(coin);
       coinRun--;
     }
-  } else {
+  } else if (type !== 'safe') {
     coinRun = 0;
   }
 
   scene.add(group);
-  segments.set(i, { group, holes, coins });
+  segments.set(i, { type, group, holes, coins, loopDone: false });
 }
 
 function ensureTrack(currentIndex) {
@@ -176,12 +259,14 @@ function ensureTrack(currentIndex) {
   }
 }
 
-function resetTrack() {
+function resetTrack(startSeg) {
   for (const seg of segments.values()) scene.remove(seg.group);
   segments.clear();
-  genIndex = 0;
+  genIndex = startSeg;
+  runStartSeg = startSeg;
   safeLane = 1;
-  hazardCooldown = 0;
+  featureCooldown = 0;
+  upcoming = [];
   coinRun = 0;
 }
 
@@ -209,40 +294,70 @@ function beep(freqFrom, freqTo, dur, type = 'sine', gain = 0.12) {
 const sfxCoin = () => beep(880, 1500, 0.12, 'sine', 0.1);
 const sfxFall = () => beep(320, 60, 0.6, 'sawtooth', 0.14);
 const sfxGo = () => beep(440, 880, 0.18, 'triangle', 0.1);
+const sfxJump = () => beep(300, 900, 0.25, 'triangle', 0.12);
+const sfxLevel = () => { beep(523, 784, 0.15, 'square', 0.07); setTimeout(() => beep(784, 1046, 0.2, 'square', 0.07), 130); };
 
 // ---------------------------------------------------------------------------
 // Game state
 // ---------------------------------------------------------------------------
-const S = { MENU: 0, PLAYING: 1, FALLING: 2, OVER: 3, PAUSED: 4 };
+const S = { MENU: 0, PLAYING: 1, OVER: 2, PAUSED: 3 };
 let state = S.MENU;
 let stateBeforePause = S.MENU;
 let speed = SPEED_START;
 let ballX = 0, ballZ = 0, ballY = BALL_R, velY = 0;
+let grounded = true;
+let fellSfx = false;
+let loop = null;            // { theta, z0 } while inside a loop-the-loop
+let lastSegIndex = -1;
+let level = 1;
 let coinsRun = 0;
-let save = { best: 0, coins: 0 };
+let save = { best: 0, coins: 0, ball: BALLS[0].id };
 
 const $ = (id) => document.getElementById(id);
-const hudDist = $('hud-dist'), hudCoins = $('hud-coins');
+const hudDist = $('hud-dist'), hudCoins = $('hud-coins'), hudLevel = $('hud-level');
+const toast = $('toast');
+let toastTimer = 0;
+function showToast(text) {
+  toast.textContent = text;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
 const screens = { start: $('screen-start'), over: $('screen-over'), pause: $('screen-pause') };
 function showScreen(name) {
   for (const [k, el] of Object.entries(screens)) el.classList.toggle('hidden', k !== name);
 }
-function hideScreens() { showScreen('none'); }
+
+function applyLevel(newLevel, quiet = false) {
+  level = newLevel;
+  const theme = THEMES[(level - 1) % THEMES.length];
+  skyTarget.set(theme.sky);
+  groundTarget.set(theme.ground);
+  snow.visible = Boolean(theme.snow);
+  hudLevel.textContent = `Lv ${level}`;
+  if (!quiet) { showToast(`LEVEL ${level} · ${theme.name}`); sfxLevel(); }
+}
 
 function startRun() {
-  resetTrack();
+  ballZ = -DEV_START;
+  ballX = 0; ballY = BALL_R; velY = 0;
+  grounded = true; fellSfx = false; loop = null;
   speed = SPEED_START;
-  ballX = 0; ballZ = 0; ballY = BALL_R; velY = 0;
   coinsRun = 0;
+  lastSegIndex = Math.floor(-ballZ / SEG_LEN);
   ball.rotation.set(0, 0, 0);
-  ensureTrack(0);
-  hideScreens();
+  resetTrack(lastSegIndex);
+  ensureTrack(lastSegIndex);
+  applyLevel(Math.floor(DEV_START / LEVEL_LEN) + 1, true);
+  showScreen('none');
   state = S.PLAYING;
   sfxGo();
 }
 
 async function endRun() {
   state = S.OVER;
+  sfxFall();
   const dist = Math.floor(-ballZ);
   const newBest = dist > (save.best || 0);
   save.best = Math.max(save.best || 0, dist);
@@ -251,12 +366,12 @@ async function endRun() {
   sendScore(dist);
   $('over-stats').innerHTML =
     `Distance: <b>${dist} m</b>${newBest ? ' — new best!' : ` (best ${save.best} m)`}<br>` +
-    `Coins: <b>+${coinsRun}</b> (total ${save.coins})`;
+    `Level <b>${level}</b> · Coins <b>+${coinsRun}</b> (total ${save.coins})`;
   showScreen('over');
 }
 
 function pauseGame() {
-  if (state !== S.PLAYING && state !== S.FALLING) return;
+  if (state !== S.PLAYING) return;
   stateBeforePause = state;
   state = S.PAUSED;
   showScreen('pause');
@@ -264,7 +379,29 @@ function pauseGame() {
 function resumeGame() {
   if (state !== S.PAUSED) return;
   state = stateBeforePause;
-  hideScreens();
+  showScreen('none');
+}
+
+// ---------------------------------------------------------------------------
+// Ball picker UI
+// ---------------------------------------------------------------------------
+function buildBallPickers() {
+  for (const rowId of ['ball-row-start', 'ball-row-over']) {
+    const row = $(rowId);
+    for (const def of BALLS) {
+      const chip = document.createElement('button');
+      chip.className = 'ball-chip';
+      chip.dataset.ball = def.id;
+      chip.title = def.name;
+      chip.appendChild(ballThumb(def));
+      chip.addEventListener('click', () => {
+        save.ball = setBall(def.id);
+        saveSave(save);
+        sfxCoin();
+      });
+      row.appendChild(chip);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -316,78 +453,150 @@ function laneAt(x) {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
-let camX = 0;
+let camX = 0, camZ = 7;
+
 function step(dt) {
-  if (state === S.PLAYING || state === S.FALLING) {
-    ballZ -= speed * dt;
-    if (state === S.PLAYING) {
-      speed = Math.min(SPEED_MAX, speed + SPEED_RAMP * dt);
-      ballX += keyDir * 7 * dt;
-      ballX = Math.max(-X_LIMIT, Math.min(X_LIMIT, ballX));
-    }
-
-    const segIndex = Math.floor(-ballZ / SEG_LEN);
-    ensureTrack(segIndex);
-
-    const seg = segments.get(segIndex);
-    const supported = seg ? !seg.holes[laneAt(ballX)] : true;
-
-    if (state === S.PLAYING && !supported) {
-      state = S.FALLING;
-      sfxFall();
-    }
-    if (state === S.FALLING) {
-      velY -= GRAVITY * dt;
-      ballY += velY * dt;
-      // Brief grace: rolling back over solid ground near the surface recovers.
-      if (supported && ballY >= BALL_R - 0.18 && velY < 0) {
-        state = S.PLAYING;
+  if (state === S.PLAYING) {
+    if (loop) {
+      // Scripted loop-the-loop: a vertical circle in the y-z plane.
+      const w = Math.max(speed, 15) / LOOP_R;
+      loop.theta += w * dt;
+      ballX += (0 - ballX) * Math.min(1, dt * 8);
+      ballY = BALL_R + LOOP_R * (1 - Math.cos(loop.theta));
+      ballZ = loop.z0 - LOOP_R * Math.sin(loop.theta);
+      ball.rotation.x -= (w * LOOP_R * dt) / BALL_R;
+      if (loop.theta >= Math.PI * 2) {
+        ballZ = loop.z0;
         ballY = BALL_R;
-        velY = 0;
-      } else if (ballY < -7) {
-        endRun();
+        grounded = true;
+        loop = null;
+        speed = Math.min(SPEED_MAX, speed + 1.5);
       }
-    }
+    } else {
+      ballZ -= speed * dt;
+      speed = Math.min(SPEED_MAX, speed + SPEED_RAMP * dt);
+      if (grounded || ballY > 0) {   // steer on the ground and mid-jump, not once fallen in
+        ballX += keyDir * 7 * dt;
+        ballX = Math.max(-X_LIMIT, Math.min(X_LIMIT, ballX));
+      }
 
-    // Coin pickups near the ball.
-    for (const idx of [segIndex, segIndex + 1]) {
-      const s = segments.get(idx);
-      if (!s || !s.coins.length) continue;
-      for (const coin of s.coins) {
-        if (!coin.visible) continue;
-        const wz = s.group.position.z + coin.position.z;
-        const dx = coin.position.x - ballX, dz = wz - ballZ;
-        if (dx * dx + dz * dz < 0.65 * 0.65) {
-          coin.visible = false;
-          coinsRun++;
-          sfxCoin();
+      const segIndex = Math.floor(-ballZ / SEG_LEN);
+      ensureTrack(segIndex);
+      const seg = segments.get(segIndex);
+      const frac = (-ballZ - segIndex * SEG_LEN) / SEG_LEN;
+
+      // Launch off the end of a ramp.
+      if (segIndex !== lastSegIndex) {
+        const prev = segments.get(lastSegIndex);
+        if (prev && prev.type === 'ramp' && grounded) {
+          speed = Math.min(SPEED_MAX, speed + 3);
+          const range = 2 * SEG_LEN + 3;
+          velY = Math.max(7, Math.min(17, (GRAVITY * range) / (2 * speed)));
+          grounded = false;
+          sfxJump();
+        }
+        lastSegIndex = segIndex;
+      }
+
+      let restY = BALL_R;
+      let supported = true;
+      if (seg) {
+        if (seg.type === 'gap') supported = false;
+        else if (seg.type === 'ramp') restY = BALL_R + RAMP_H * frac;
+        else supported = !seg.holes[laneAt(ballX)];
+      }
+
+      // Enter a loop.
+      if (seg && seg.type === 'loop' && grounded && !seg.loopDone && frac < 0.4) {
+        seg.loopDone = true;
+        loop = { theta: 0, z0: ballZ };
+        grounded = false;
+        sfxJump();
+      } else if (grounded) {
+        if (supported) {
+          ballY = restY;              // roll along the floor / up the ramp
+        } else {
+          grounded = false;           // rolled into a hole or gap
+          velY = 0;
+        }
+      } else {
+        velY -= GRAVITY * dt;
+        const prevY = ballY;
+        ballY += velY * dt;
+        // Land only when crossing the floor from above this frame — a ball
+        // already below the lip has fallen in and cannot be rescued.
+        if (velY <= 0 && supported && ballY <= restY && prevY >= restY - 0.05) {
+          ballY = restY;              // landed
+          velY = 0;
+          grounded = true;
+          fellSfx = false;
+        } else if (ballY < 0 && !fellSfx && !supported) {
+          fellSfx = true;
+          sfxFall();
+        }
+        if (ballY < DEATH_Y) { endRun(); }
+      }
+
+      ball.rotation.x -= (speed * dt) / BALL_R;
+
+      // Coin pickups near the ball.
+      for (const idx of [segIndex, segIndex + 1]) {
+        const s = segments.get(idx);
+        if (!s || !s.coins.length) continue;
+        for (const coin of s.coins) {
+          if (!coin.visible) continue;
+          const wz = s.group.position.z + coin.position.z;
+          const dx = coin.position.x - ballX, dz = wz - ballZ;
+          if (dx * dx + dz * dz < 0.65 * 0.65 && Math.abs(ballY - BALL_R) < 1) {
+            coin.visible = false;
+            coinsRun++;
+            sfxCoin();
+          }
         }
       }
     }
 
-    // Roll the ball.
-    ball.rotation.x -= (speed * dt) / BALL_R;
+    // Level / theme progression.
+    const newLevel = Math.max(1, Math.floor(-ballZ / LEVEL_LEN) + 1);
+    if (newLevel !== level) applyLevel(newLevel);
 
     hudDist.textContent = `${Math.floor(-ballZ)} m`;
     hudCoins.textContent = String(coinsRun);
   }
 
-  // Spin coins around the vertical axis for sparkle.
+  // Ambient motion: coins spin, sky/ground colors ease toward the theme.
   for (const s of segments.values()) {
     for (const coin of s.coins) coin.rotateOnWorldAxis(UP, dt * 3);
+  }
+  scene.background.lerp(skyTarget, Math.min(1, dt * 2));
+  scene.fog.color.copy(scene.background);
+  groundMat.color.lerp(groundTarget, Math.min(1, dt * 2));
+  ground.position.z = ballZ;
+
+  if (snow.visible) {
+    const pos = snowGeo.attributes.position;
+    for (let i = 0; i < SNOW_N; i++) {
+      let y = pos.getY(i) - dt * 2.2;
+      if (y < -2) y = 20;
+      pos.setY(i, y);
+    }
+    pos.needsUpdate = true;
+    snow.position.z = ballZ + 10;
   }
 
   ball.position.set(ballX, ballY, ballZ);
   camX += (ballX * 0.55 - camX) * Math.min(1, dt * 5);
-  camera.position.set(camX, 3.4, ballZ + 7);
-  camera.lookAt(camX * 0.9, 0.6, ballZ - 5);
+  camZ += (ballZ + 7 - camZ) * Math.min(1, dt * 6);
+  const lift = Math.max(0, ballY - BALL_R);
+  camera.position.set(camX, 3.4 + lift * 0.35, camZ);
+  camera.lookAt(camX * 0.9, 0.6 + lift * 0.55, camZ - 12);
 
   renderer.render(scene, camera);
 }
 
 let lastT = performance.now();
 let sentFirstFrame = false;
-function loop(t) {
+function loopFrame(t) {
   const dt = Math.min((t - lastT) / 1000, 0.05);
   lastT = t;
   step(dt);
@@ -395,7 +604,7 @@ function loop(t) {
     sentFirstFrame = true;
     firstFrameReady();
   }
-  requestAnimationFrame(loop);
+  requestAnimationFrame(loopFrame);
 }
 
 // ---------------------------------------------------------------------------
@@ -403,9 +612,13 @@ function loop(t) {
 // ---------------------------------------------------------------------------
 (async () => {
   save = await loadSave();
+  buildBallPickers();
+  setBall(save.ball || BALLS[0].id);
   if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;
+  hudLevel.textContent = 'Lv 1';
+  resetTrack(0);
   ensureTrack(0);
   showScreen('start');
-  requestAnimationFrame(loop);
+  requestAnimationFrame(loopFrame);
   gameReady();
 })();
