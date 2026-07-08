@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Rolling Rush</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a103c;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #game { position: fixed; inset: 0; display: block; }
+
+  .hud {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 0; right: 0;
+    display: flex; justify-content: space-between;
+    padding: 0 16px;
+    pointer-events: none;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0,0,0,.45);
+    font-weight: 700;
+  }
+  .hud .pill {
+    background: rgba(0,0,0,.28);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: clamp(14px, 2.4vh, 20px);
+    backdrop-filter: blur(4px);
+  }
+  .hud .coin::before { content: "●"; color: #ffd23e; margin-right: 6px; }
+
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    background: rgba(16, 8, 42, .62);
+    color: #fff;
+    text-align: center;
+    padding: 24px;
+    backdrop-filter: blur(3px);
+    z-index: 10;
+  }
+  .screen.hidden { display: none; }
+  .screen h1 {
+    font-size: clamp(34px, 8vh, 64px);
+    letter-spacing: .02em;
+    background: linear-gradient(180deg, #ffd23e, #ff7a59);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+  }
+  .screen h2 { font-size: clamp(24px, 5vh, 40px); }
+  .screen p { font-size: clamp(14px, 2.6vh, 18px); opacity: .9; max-width: 34ch; line-height: 1.45; }
+  .screen .stats { font-size: clamp(16px, 3vh, 22px); line-height: 1.6; }
+  .screen .stats b { color: #ffd23e; }
+  .btn {
+    pointer-events: auto;
+    border: 0; cursor: pointer;
+    font: inherit; font-weight: 800;
+    font-size: clamp(17px, 3vh, 22px);
+    color: #2a1450;
+    background: linear-gradient(180deg, #ffe27a, #ffb347);
+    padding: 14px 44px;
+    border-radius: 999px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 10px 24px rgba(0,0,0,.35);
+    transition: transform .08s ease;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  .hint { font-size: 13px; opacity: .65; }
+</style>
+<script type="importmap">
+  { "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<!-- YouTube Playables SDK: only resolves inside the YouTube environment; harmless elsewhere -->
+<script src="https://www.youtube.com/game_api/v1" defer onerror="void 0"></script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="pill" id="hud-dist">0 m</div>
+  <div class="pill coin" id="hud-coins">0</div>
+</div>
+
+<div class="screen" id="screen-start">
+  <h1>Rolling Rush</h1>
+  <p>Drag (or use ◀ ▶ keys) to steer the ball.<br>Dodge the holes, grab the coins,<br>and see how far you can roll!</p>
+  <button class="btn" id="btn-play">PLAY</button>
+  <p class="hint" id="best-line"></p>
+</div>
+
+<div class="screen hidden" id="screen-over">
+  <h2>You fell!</h2>
+  <p class="stats" id="over-stats"></p>
+  <button class="btn" id="btn-retry">PLAY AGAIN</button>
+</div>
+
+<div class="screen hidden" id="screen-pause">
+  <h2>Paused</h2>
+  <button class="btn" id="btn-resume">RESUME</button>
+</div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>
