@@ -219,21 +219,39 @@
   }
   .pack-card.disabled { opacity: .55; }
 
-  .arm-row { display: flex; gap: 8px; min-height: 0; pointer-events: auto; flex-wrap: wrap; justify-content: center; }
+  .arm-label {
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: #ffd23e; opacity: .95;
+    margin-bottom: 2px;
+  }
+  .arm-label.hidden { display: none; }
+  .arm-row { display: flex; gap: 8px; min-height: 0; pointer-events: auto; flex-wrap: wrap; justify-content: center; max-width: min(94vw, 460px); }
   .arm-chip {
+    display: flex; align-items: center; gap: 7px;
     font: inherit; font-size: 14px; font-weight: 700;
     color: #fff;
     background: rgba(255,255,255,.1);
     border: 2px solid rgba(255,255,255,.3);
     border-radius: 999px;
-    padding: 6px 14px;
+    padding: 7px 12px;
     cursor: pointer;
+    transition: transform .08s ease;
+  }
+  .arm-chip:active { transform: scale(.94); }
+  .arm-chip .ac-icon { font-size: 18px; }
+  .arm-chip .ac-count { opacity: .7; font-size: 12px; }
+  .arm-chip .ac-state {
+    font-size: 11px; font-weight: 800;
+    padding: 2px 8px; border-radius: 999px;
+    background: rgba(255,255,255,.18); color: #fff;
   }
   .arm-chip.armed {
     border-color: #ffd23e;
     background: rgba(255, 210, 62, .22);
-    box-shadow: 0 0 10px rgba(255,210,62,.4);
+    box-shadow: 0 0 12px rgba(255,210,62,.45);
   }
+  .arm-chip.armed .ac-state { background: #ffd23e; color: #2a1450; }
 
   .hidden { display: none !important; }
   .acct-form {
@@ -295,6 +313,7 @@
   <p>Drag to steer — push <b>up</b> to speed, pull <b>down</b> to brake (or ◀ ▶ ▲ ▼ keys). Dodge holes and boulders, hit boost pads, ride the loops — the world changes every level!</p>
   <div class="picker-label">Choose your ball</div>
   <div class="ball-row" id="ball-row-start"></div>
+  <div class="arm-label hidden" id="boost-arm-label">Tap a boost to use it this run</div>
   <div class="arm-row" id="boost-arm-row"></div>
   <button class="btn" id="btn-play">PLAY</button>
   <button class="btn ghost" id="btn-shop">🛒 SHOP · <span data-coin-balance>0</span> coins</button>
