@@ -750,6 +750,13 @@ function step(dt) {
         }
         const dx = b.position.x - ballX, dz = b.position.z - ballZ;
         if (state === S.PLAYING && ballY < 1.4 && dx * dx + dz * dz < 0.9 * 0.9) {
+          if (perk === 'flame') {          // flame ball torches boulders
+            scene.remove(b);
+            boulders.splice(i, 1);
+            coinsRun += 5;
+            sfxLevel();
+            continue;
+          }
           die();
           break;
         }

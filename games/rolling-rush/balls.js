@@ -194,7 +194,7 @@ export const BALLS = [
     roughness: 0.2,
   })),
   // Premium perk balls
-  { id: 'flame', name: 'Flame Ball — every coin is worth +1', price: 250, make: flame, perk: 'flame', roughness: 0.25 },
+  { id: 'flame', name: 'Flame Ball — torches boulders (+5 coins each), every coin worth +1', price: 250, make: flame, perk: 'flame', roughness: 0.25 },
   { id: 'angel', name: 'Angel Ball — glides over holes', price: 400, make: angel, perk: 'wings', roughness: 0.3 },
 ];
 
