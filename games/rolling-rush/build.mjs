@@ -40,6 +40,7 @@ const body = out
   .replace(/<\/body>\n?/i, '')
   .replace(/<meta[^>]*>\n?/gi, '')
   .replace(/<script src="https:\/\/www\.youtube\.com\/game_api\/v1"[^>]*><\/script>\n?/, '');
-writeFileSync('dist/artifact.html', body);
+// The artifact's CSP blocks Supabase/Stripe, so disable cloud features there.
+writeFileSync('dist/artifact.html', '<script>window.__RR_NO_CLOUD=1</script>\n' + body);
 
 console.log('wrote dist/index.html and dist/artifact.html');
