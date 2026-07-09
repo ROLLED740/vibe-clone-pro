@@ -135,33 +135,41 @@ function buildCoinPacks() {
   }
 }
 
-// Armed-boost toggles shown on the start screen.
+// Armed-boost toggles, shown identically on the start AND game-over screens
+// so you can arm boosts after buying, after dying, or on first launch.
+const ARM_ROWS = [
+  ['boost-arm-row', 'boost-arm-label'],
+  ['boost-arm-row-over', 'boost-arm-label-over'],
+];
 function refreshArmRow() {
-  const row = $('boost-arm-row');
-  const label = $('boost-arm-label');
-  row.innerHTML = '';
-  let owned = 0;
-  for (const b of BOOSTS) {
-    const count = ctx.save.boosts[b.id] || 0;
-    if (!count && !armed.has(b.id)) continue;
-    owned++;
-    const on = armed.has(b.id);
-    const chip = document.createElement('button');
-    chip.className = 'arm-chip' + (on ? ' armed' : '');
-    chip.innerHTML =
-      `<span class="ac-icon">${b.icon}</span>` +
-      `<span>${b.name.split('—')[0].trim()}</span>` +
-      `<span class="ac-count">×${count}</span>` +
-      `<span class="ac-state">${on ? 'ON' : 'OFF'}</span>`;
-    chip.title = `${b.name} — tap to ${on ? 'turn off' : 'use on this run'}`;
-    chip.addEventListener('click', () => {
-      if (on) armed.delete(b.id);
-      else if (count > 0) armed.add(b.id);
-      refreshArmRow();
-    });
-    row.appendChild(chip);
+  for (const [rowId, labelId] of ARM_ROWS) {
+    const row = $(rowId);
+    const label = $(labelId);
+    if (!row) continue;
+    row.innerHTML = '';
+    let owned = 0;
+    for (const b of BOOSTS) {
+      const count = ctx.save.boosts[b.id] || 0;
+      if (!count && !armed.has(b.id)) continue;
+      owned++;
+      const on = armed.has(b.id);
+      const chip = document.createElement('button');
+      chip.className = 'arm-chip' + (on ? ' armed' : '');
+      chip.innerHTML =
+        `<span class="ac-icon">${b.icon}</span>` +
+        `<span>${b.name.split('—')[0].trim()}</span>` +
+        `<span class="ac-count">×${count}</span>` +
+        `<span class="ac-state">${on ? 'ON' : 'OFF'}</span>`;
+      chip.title = `${b.name} — tap to ${on ? 'turn off' : 'use on this run'}`;
+      chip.addEventListener('click', () => {
+        if (on) armed.delete(b.id);
+        else if (count > 0) armed.add(b.id);
+        refreshArmRow();
+      });
+      row.appendChild(chip);
+    }
+    if (label) label.classList.toggle('hidden', owned === 0);
   }
-  label.classList.toggle('hidden', owned === 0);   // hide the heading if you own no boosts
 }
 
 // Called by the game when a run starts: consumes armed boosts.
