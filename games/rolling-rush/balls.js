@@ -134,6 +134,47 @@ function billiard(n) {
   };
 }
 
+function flame() {
+  const [c, g] = canvasCtx();
+  const grad = g.createLinearGradient(0, 0, 0, TEX_H);
+  grad.addColorStop(0, '#fff176');
+  grad.addColorStop(0.45, '#ff9800');
+  grad.addColorStop(1, '#b71c1c');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, TEX_W, TEX_H);
+  for (let i = 0; i < 26; i++) {              // licking flames
+    const x = Math.random() * TEX_W, h = 25 + Math.random() * 55;
+    const f = g.createLinearGradient(0, TEX_H - h, 0, TEX_H);
+    f.addColorStop(0, 'rgba(255,241,118,.85)');
+    f.addColorStop(1, 'rgba(255,87,34,0)');
+    g.fillStyle = f;
+    g.beginPath();
+    g.moveTo(x - 8, TEX_H);
+    g.quadraticCurveTo(x, TEX_H - h * 1.4, x + 8, TEX_H);
+    g.fill();
+  }
+  return c;
+}
+
+function angel() {
+  const [c, g] = canvasCtx();
+  g.fillStyle = '#bfe3ff';
+  g.fillRect(0, 0, TEX_W, TEX_H);
+  g.fillStyle = '#ffd23e';                    // halo band
+  g.fillRect(0, 14, TEX_W, 9);
+  g.fillStyle = '#ffffff';                    // wings at both seams
+  for (const cx of [64, 192]) {
+    for (const s of [-1, 1]) {
+      for (let f = 0; f < 4; f++) {           // four feathers per wing
+        g.beginPath();
+        g.ellipse(cx + s * (14 + f * 11), 66 + f * 7, 16, 6 + f * 2, s * (0.35 + f * 0.18), 0, 7);
+        g.fill();
+      }
+    }
+  }
+  return c;
+}
+
 export const BALLS = [
   { id: 'sunset', name: 'Sunset', price: 0, make: gradientBall(['#ffd54f', '#ff7043', '#8e24aa']) },
   { id: 'ocean', name: 'Ocean', price: 30, make: gradientBall(['#4dd0e1', '#1976d2', '#0d2c6b']) },
@@ -152,6 +193,9 @@ export const BALLS = [
     make: billiard(i + 1),
     roughness: 0.2,
   })),
+  // Premium perk balls
+  { id: 'flame', name: 'Flame Ball — every coin is worth +1', price: 250, make: flame, perk: 'flame', roughness: 0.25 },
+  { id: 'angel', name: 'Angel Ball — glides over holes', price: 400, make: angel, perk: 'wings', roughness: 0.3 },
 ];
 
 // Small round chip image for the ball-picker UI.

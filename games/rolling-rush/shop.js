@@ -181,8 +181,11 @@ export function initShop(context) {
   buildBallRows();
   buildBoosts();
   buildCoinPacks();
-  $('btn-shop').addEventListener('click', () => { ctx.showScreen('shop'); refreshChips(); });
-  $('btn-shop-over').addEventListener('click', () => { ctx.showScreen('shop'); refreshChips(); });
-  $('btn-shop-close').addEventListener('click', () => ctx.showScreen('start'));
+  let shopReturn = 'start';
+  const openShop = (from) => () => { shopReturn = from; ctx.showScreen('shop'); refreshChips(); };
+  $('btn-shop').addEventListener('click', openShop('start'));
+  $('btn-shop-over').addEventListener('click', openShop('over'));
+  $('btn-shop-pause').addEventListener('click', openShop('pause'));
+  $('btn-shop-close').addEventListener('click', () => ctx.showScreen(shopReturn));
   refreshChips();
 }

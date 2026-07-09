@@ -38,6 +38,12 @@
     backdrop-filter: blur(4px);
   }
   .hud .coin::before { content: "●"; color: #ffd23e; margin-right: 6px; }
+  .hud .hud-btn {
+    pointer-events: auto;
+    border: 0; cursor: pointer;
+    font: inherit; color: #fff;
+    line-height: 1;
+  }
 
   #toast {
     position: fixed;
@@ -279,6 +285,7 @@
   <div class="pill" id="hud-dist">0 m</div>
   <div class="pill" id="hud-level">Lv 1</div>
   <div class="pill coin" id="hud-coins">0</div>
+  <button class="pill hud-btn" id="btn-pause" title="Pause">⏸</button>
 </div>
 
 <div id="toast"></div>
@@ -355,6 +362,7 @@
 <div class="screen hidden" id="screen-pause">
   <h2>Paused</h2>
   <button class="btn" id="btn-resume">RESUME</button>
+  <button class="btn ghost" id="btn-shop-pause">🛒 SHOP</button>
 </div>
 
 <script type="module" src="./game.js"></script>

@@ -35,6 +35,7 @@ const LEVEL_LEN = Math.max(80, Number(PARAMS.get('levellen')) || 400);
 const DEV_START = Math.max(0, Number(PARAMS.get('start')) || 0);
 const LOOP_CHANCE = PARAMS.has('loops') ? 0.5 : 0.06;
 const DEV_COINS = Math.max(0, Number(PARAMS.get('coins')) || 0);
+const DEMO = PARAMS.has('demo');     // autopilot attract mode (also used for trailers)
 
 // ---------------------------------------------------------------------------
 // Renderer / scene
@@ -181,6 +182,7 @@ function setBall(id) {
   ball.material.roughness = def.roughness ?? 0.35;
   ball.material.metalness = def.metalness ?? 0.05;
   ball.material.needsUpdate = true;
+  perk = def.perk || '';
   document.querySelectorAll('.ball-chip').forEach((el) => {
     el.classList.toggle('selected', el.dataset.ball === def.id);
   });
@@ -217,7 +219,9 @@ const laneGeo = new THREE.BoxGeometry(LANE_W, 0.5, SEG_LEN);
 const railGeo = new THREE.BoxGeometry(0.3, 0.42, SEG_LEN);
 const padGeo = new THREE.BoxGeometry(1.7, 0.08, 2.6);
 const boulderGeo = new THREE.SphereGeometry(0.55, 20, 14);
-const boulderMat = new THREE.MeshStandardMaterial({ color: 0xb03a3a, roughness: 0.35, metalness: 0.15 });
+const boulderMats = [0xb03a3a, 0x7d3c98, 0x2c3e50, 0xd35400, 0x148f77].map(
+  (color) => new THREE.MeshStandardMaterial({ color, roughness: 0.35, metalness: 0.15 }),
+);
 const coinGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.09, 20);
 const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd23e, roughness: 0.25, metalness: 0.65 });
 const rampLen = Math.hypot(SEG_LEN, RAMP_H);
@@ -322,9 +326,11 @@ function spawnSegment(i) {
     pads.push({ x: (lane - 1) * LANE_W, hit: false });
   }
   if (type === 'safe' && (i - runStartSeg) * SEG_LEN > 120 && Math.random() < 0.08) {
-    const boulder = new THREE.Mesh(boulderGeo, boulderMat);
+    const boulder = new THREE.Mesh(boulderGeo, boulderMats[Math.floor(Math.random() * boulderMats.length)]);
+    const s = 0.85 + Math.random() * 0.5;
+    boulder.scale.setScalar(s);
     const lane = Math.floor(Math.random() * LANES);
-    boulder.position.set((lane - 1) * LANE_W, 0.55, segmentCenterZ(i));
+    boulder.position.set((lane - 1) * LANE_W, 0.55 * s, segmentCenterZ(i));
     scene.add(boulder);
     boulders.push(boulder);
   }
@@ -418,6 +424,7 @@ let level = 1;
 let coinsRun = 0;
 let coinValue = 1;          // 2 with the Coin Doubler boost
 let shieldCharges = 0;
+let perk = '';              // equipped ball's perk: '', 'flame', 'wings'
 let save = { best: 0, coins: 0, ball: BALLS[0].id };
 
 const $ = (id) => document.getElementById(id);
@@ -457,7 +464,7 @@ function applyLevel(newLevel, quiet = false) {
 function startRun() {
   const boosts = consumeArmedBoosts();
   const startDist = DEV_START + (boosts.headstart ? 150 : 0);
-  coinValue = boosts.doubler ? 2 : 1;
+  coinValue = (boosts.doubler ? 2 : 1) + (perk === 'flame' ? 1 : 0);
   shieldCharges = boosts.shield ? 1 : 0;
   ballZ = -startDist;
   ballX = 0; ballY = BALL_R; velY = 0;
@@ -493,6 +500,7 @@ async function endRun() {
     (distBonus ? ` <small>(incl. +${distBonus} distance bonus)</small>` : '') +
     ` · Bank <b data-coin-balance>${save.coins}</b>`;
   showScreen('over');
+  if (DEMO) setTimeout(startRun, 1500);
 }
 
 // Shield boost: instead of dying, get dropped back onto the next safe segment.
@@ -572,6 +580,7 @@ window.addEventListener('keyup', (e) => {
 $('btn-play').addEventListener('click', startRun);
 $('btn-retry').addEventListener('click', startRun);
 $('btn-resume').addEventListener('click', resumeGame);
+$('btn-pause').addEventListener('click', pauseGame);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) pauseGame();
@@ -591,6 +600,40 @@ let camX = 0, camZ = 7;
 function die() {
   if (shieldCharges > 0) shieldRespawn();
   else endRun();
+}
+
+// Autopilot: pick the safest lane ahead (dodging holes and boulders),
+// otherwise chase coins. Used by ?demo for attract mode and trailer capture.
+function demoSteer(segIndex, dt) {
+  const hazard = new Set();
+  for (const b of boulders) {
+    const dz = b.position.z - ballZ;
+    if (dz < 2 && dz > -16) hazard.add(laneAt(b.position.x));
+  }
+  let coinLane = -1;
+  for (let i = segIndex; i <= segIndex + 4; i++) {
+    const s = segments.get(i);
+    if (!s) continue;
+    if (s.type === 'holes') {
+      s.holes.forEach((h, lane) => { if (h) hazard.add(lane); });
+      if (i <= segIndex + 2) break;      // dodge the near threat first
+    }
+    if (coinLane < 0 && s.coins.some((c) => c.visible)) {
+      coinLane = laneAt(s.coins[0].position.x);
+    }
+  }
+  const safe = [0, 1, 2].filter((l) => !hazard.has(l));
+  let target = laneAt(ballX);
+  if (hazard.size && safe.length) {
+    if (!safe.includes(target)) {
+      target = safe.reduce((a, b) => (Math.abs(a - target) <= Math.abs(b - target) ? a : b));
+    }
+  } else if (coinLane >= 0) {
+    target = coinLane;
+  }
+  const d = (target - 1) * LANE_W - ballX;
+  ballX += Math.sign(d) * Math.min(Math.abs(d), 7 * dt);
+  keyThrottle = hazard.size ? 0 : 0.7;   // cruise fast on open track
 }
 
 function step(dt) {
@@ -624,6 +667,7 @@ function step(dt) {
         ballX += keyDir * 7 * dt;
         ballX = Math.max(-X_LIMIT, Math.min(X_LIMIT, ballX));
       }
+      if (DEMO && grounded) demoSteer(Math.floor(-ballZ / SEG_LEN), dt);
 
       const segIndex = Math.floor(-ballZ / SEG_LEN);
       ensureTrack(segIndex);
@@ -648,7 +692,7 @@ function step(dt) {
       if (seg) {
         if (seg.type === 'gap') supported = false;
         else if (seg.type === 'ramp') restY = BALL_R + RAMP_H * frac;
-        else supported = !seg.holes[laneAt(ballX)];
+        else supported = perk === 'wings' || !seg.holes[laneAt(ballX)]; // angel ball glides over holes
       }
 
       // Enter a loop.
@@ -761,7 +805,8 @@ function step(dt) {
   ball.position.set(ballX, ballY, ballZ);
 
   // Speed streak: fades in with extra speed, hugs the track behind the ball.
-  const glow = state === S.PLAYING && grounded ? Math.max(0, extra) / 19 : 0;
+  const glow = state === S.PLAYING && grounded
+    ? Math.max(Math.max(0, extra) / 19, perk === 'flame' ? 0.5 : 0) : 0;
   trail.material.opacity += (Math.min(0.75, glow) - trail.material.opacity) * Math.min(1, dt * 8);
   trail.position.set(ballX, 0.06, ballZ + 2.6);
 
@@ -838,4 +883,5 @@ function loopFrame(t) {
   showScreen('start');
   requestAnimationFrame(loopFrame);
   gameReady();
+  if (DEMO) setTimeout(startRun, 900);
 })();
