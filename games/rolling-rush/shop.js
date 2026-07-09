@@ -8,6 +8,7 @@ export const BOOSTS = [
   { id: 'headstart', icon: '🚀', name: 'Head Start', desc: 'Begin the run 150 m in, already up to speed', price: 15 },
   { id: 'shield', icon: '🛡️', name: 'Shield', desc: 'Survive one fall — you get dropped back onto the track', price: 25 },
   { id: 'doubler', icon: '✨', name: 'Coin Doubler', desc: 'Every coin this run counts double', price: 20 },
+  { id: 'slowmo', icon: '🐢', name: 'Slow-Mo Start', desc: 'The first 8 seconds run in slow motion — line up your dodges', price: 18 },
 ];
 
 let ctx;                 // { save, persist, setBall, showToast, sfxBuy, sfxDeny, showScreen, isYouTube }
@@ -156,7 +157,7 @@ function refreshArmRow() {
 
 // Called by the game when a run starts: consumes armed boosts.
 export function consumeArmedBoosts() {
-  const out = { headstart: false, shield: false, doubler: false };
+  const out = { headstart: false, shield: false, doubler: false, slowmo: false };
   for (const id of [...armed]) {
     if ((ctx.save.boosts[id] || 0) > 0) {
       ctx.save.boosts[id]--;

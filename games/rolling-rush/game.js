@@ -425,6 +425,7 @@ let coinsRun = 0;
 let coinValue = 1;          // 2 with the Coin Doubler boost
 let shieldCharges = 0;
 let perk = '';              // equipped ball's perk: '', 'flame', 'wings'
+let slowmoTimer = 0;        // seconds of slow-motion remaining (Slow-Mo boost)
 let save = { best: 0, coins: 0, ball: BALLS[0].id };
 
 const $ = (id) => document.getElementById(id);
@@ -466,6 +467,7 @@ function startRun() {
   const startDist = DEV_START + (boosts.headstart ? 150 : 0);
   coinValue = (boosts.doubler ? 2 : 1) + (perk === 'flame' ? 1 : 0);
   shieldCharges = boosts.shield ? 1 : 0;
+  slowmoTimer = boosts.slowmo ? 8 : 0;
   ballZ = -startDist;
   ballX = 0; ballY = BALL_R; velY = 0;
   grounded = true; fellSfx = false; loop = null;
@@ -643,6 +645,10 @@ function step(dt) {
   const extra = Math.max(-0.6, Math.min(1, throttle + keyThrottle)) * 8
     + (boostTimer > 0 ? 11 : 0);
   const effSpeed = Math.max(4, speed + extra);
+
+  // Slow-Mo boost: stretch simulated time for the opening seconds.
+  if (state === S.PLAYING && slowmoTimer > 0) slowmoTimer = Math.max(0, slowmoTimer - dt);
+  if (slowmoTimer > 0) dt *= 0.45;
 
   if (state === S.PLAYING) {
     if (loop) {

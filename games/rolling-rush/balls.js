@@ -175,6 +175,56 @@ function angel() {
   return c;
 }
 
+// --- character skins: generic archetypes drawn as a face, twice around the
+// ball so one always faces camera. Deliberately original — no real IP. ---
+function faceBall(bg, draw) {
+  return () => {
+    const [c, g] = canvasCtx();
+    if (typeof bg === 'function') bg(g);
+    else { g.fillStyle = bg; g.fillRect(0, 0, TEX_W, TEX_H); }
+    for (const cx of [64, 192]) { g.save(); g.translate(cx, 64); draw(g); g.restore(); }
+    return c;
+  };
+}
+const eye = (g, x, r = 9) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(x, -8, r, 0, 7); g.fill();
+  g.fillStyle = '#1a1a1a'; g.beginPath(); g.arc(x, -8, r * 0.5, 0, 7); g.fill(); };
+
+const robot = faceBall('#9fb2c9', (g) => {
+  g.fillStyle = '#26323f'; g.fillRect(-26, -22, 52, 40);
+  g.fillStyle = '#4dd0e1'; g.fillRect(-18, -14, 12, 10); g.fillRect(6, -14, 12, 10);
+  g.fillStyle = '#ff5252'; g.fillRect(-12, 6, 24, 4);
+  g.strokeStyle = '#ffd23e'; g.lineWidth = 3; g.beginPath(); g.moveTo(0, -22); g.lineTo(0, -32); g.stroke();
+  g.fillStyle = '#ffd23e'; g.beginPath(); g.arc(0, -34, 4, 0, 7); g.fill();
+});
+const ninja = faceBall('#2f2f38', (g) => {
+  g.fillStyle = '#e53935'; g.fillRect(-30, -14, 60, 14);      // headband
+  g.fillStyle = '#f2c9a0'; g.fillRect(-26, 0, 52, 12);         // eye strip
+  g.fillStyle = '#1a1a1a'; g.fillRect(-18, 3, 12, 5); g.fillRect(6, 3, 12, 5);
+});
+const alien = faceBall('#7cf29b', (g) => {
+  g.fillStyle = '#0d3b1e';
+  for (const s of [-1, 1]) { g.beginPath(); g.ellipse(s * 12, -6, 7, 12, s * 0.3, 0, 7); g.fill(); }
+  g.strokeStyle = '#0d3b1e'; g.lineWidth = 2; g.beginPath(); g.arc(0, 14, 9, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+});
+const smiley = faceBall('#ffd23e', (g) => {
+  eye(g, -13, 8); eye(g, 13, 8);
+  g.strokeStyle = '#8a5a00'; g.lineWidth = 5; g.lineCap = 'round';
+  g.beginPath(); g.arc(0, 6, 16, 0.12 * Math.PI, 0.88 * Math.PI); g.stroke();
+});
+const pirate = faceBall('#e8ddc7', (g) => {
+  g.fillStyle = '#1a1a1a'; g.fillRect(-30, -30, 60, 16);      // bandana
+  g.fillStyle = '#c0392b'; for (let x = -30; x < 30; x += 10) g.fillRect(x, -30, 5, 16);
+  g.fillStyle = '#1a1a1a'; g.beginPath(); g.arc(-13, -6, 8, 0, 7); g.fill();  // eyepatch
+  g.strokeStyle = '#1a1a1a'; g.lineWidth = 3; g.beginPath(); g.moveTo(-30, -12); g.lineTo(6, -8); g.stroke();
+  eye(g, 13, 8);
+  g.strokeStyle = '#7a4a2a'; g.lineWidth = 4; g.beginPath(); g.arc(2, 8, 12, 0.1 * Math.PI, 0.6 * Math.PI); g.stroke();
+});
+const skull = faceBall('#f3f3ef', (g) => {
+  g.fillStyle = '#1a1a1a'; g.beginPath(); g.arc(-13, -6, 9, 0, 7); g.fill(); g.beginPath(); g.arc(13, -6, 9, 0, 7); g.fill();
+  g.beginPath(); g.moveTo(0, 4); g.lineTo(-5, 14); g.lineTo(5, 14); g.fill();  // nose
+  for (let x = -12; x <= 12; x += 8) g.fillRect(x - 2, 20, 4, 8);              // teeth
+});
+
 export const BALLS = [
   { id: 'sunset', name: 'Sunset', price: 0, make: gradientBall(['#ffd54f', '#ff7043', '#8e24aa']) },
   { id: 'ocean', name: 'Ocean', price: 30, make: gradientBall(['#4dd0e1', '#1976d2', '#0d2c6b']) },
@@ -193,6 +243,13 @@ export const BALLS = [
     make: billiard(i + 1),
     roughness: 0.2,
   })),
+  // Character skins (original archetypes — copyright-safe)
+  { id: 'smiley', name: 'Smiley', price: 90, make: smiley },
+  { id: 'robot', name: 'Robo', price: 110, make: robot, roughness: 0.3, metalness: 0.4 },
+  { id: 'ninja', name: 'Ninja', price: 110, make: ninja },
+  { id: 'alien', name: 'Alien', price: 120, make: alien },
+  { id: 'pirate', name: 'Pirate', price: 130, make: pirate },
+  { id: 'skull', name: 'Skull', price: 140, make: skull },
   // Premium perk balls
   { id: 'flame', name: 'Flame Ball — torches boulders (+5 coins each), every coin worth +1', price: 250, make: flame, perk: 'flame', roughness: 0.25 },
   { id: 'angel', name: 'Angel Ball — glides over holes', price: 400, make: angel, perk: 'wings', roughness: 0.3 },
