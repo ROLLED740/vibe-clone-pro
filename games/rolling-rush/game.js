@@ -183,9 +183,11 @@ function buildWing(side) {
   const wing = new THREE.Group();
   for (let f = 0; f < 4; f++) {
     const feather = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7 + f * 0.28, 5), wingMat);
-    feather.rotation.z = side * (Math.PI / 2 - 0.55); // point up-and-outward
+    // NEGATIVE side: cone tips sweep OUTWARD and up (positive folded them
+    // inward over the ball, which read as pincers/teeth).
+    feather.rotation.z = -side * (Math.PI / 2 - 0.65);
     feather.rotation.y = side * (0.5 - f * 0.3);      // fan from front to back
-    feather.position.set(side * (0.25 + f * 0.14), 0.1 + f * 0.14, -f * 0.09);
+    feather.position.set(side * (0.3 + f * 0.17), 0.12 + f * 0.16, -f * 0.09);
     feather.scale.z = 0.3;                             // flatten into a blade
     wing.add(feather);
   }
@@ -201,10 +203,10 @@ let wingPhase = 0;
 function updateWings(dt) {
   wings.visible = perk === 'wings';
   if (!wings.visible) return;
-  wingPhase += dt * 11;
-  const flap = Math.sin(wingPhase) * 0.9;             // radians of flap
-  wingL.rotation.z = flap;
-  wingR.rotation.z = -flap;
+  wingPhase += dt * 10;
+  const flap = 0.15 + Math.sin(wingPhase) * 0.45;     // gentle up-beat, never inverted
+  wingL.rotation.z = -flap;
+  wingR.rotation.z = flap;
   wings.position.set(slipX, ballY + 0.22, ballZ - 0.05);
 }
 
