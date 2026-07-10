@@ -36,6 +36,8 @@ const DEV_START = Math.max(0, Number(PARAMS.get('start')) || 0);
 const LOOP_CHANCE = PARAMS.has('loops') ? 0.5 : 0.06;
 const DEV_COINS = Math.max(0, Number(PARAMS.get('coins')) || 0);
 const DEMO = PARAMS.has('demo');     // autopilot attract mode (also used for trailers)
+const ADMIN = PARAMS.get('admin') === 'rolled740';  // ?admin=rolled740 unlocks everything
+let adminStartLevel = 1;             // world to start the next run in (admin only)
 
 // ---------------------------------------------------------------------------
 // Renderer / scene
@@ -169,6 +171,42 @@ const ball = new THREE.Mesh(
   new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05 }),
 );
 scene.add(ball);
+
+// Angel wings: real 3D feathered wings that follow the ball and flap.
+// Kept on a separate group so they don't spin with the rolling ball.
+const wingMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, roughness: 0.6, metalness: 0.0,
+  emissive: 0xfff4c2, emissiveIntensity: 0.25, side: THREE.DoubleSide,
+});
+function buildWing(side) {
+  // Four tapered feathers fanning up and back — a spread angel wing.
+  const wing = new THREE.Group();
+  for (let f = 0; f < 4; f++) {
+    const feather = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7 + f * 0.28, 5), wingMat);
+    feather.rotation.z = side * (Math.PI / 2 - 0.55); // point up-and-outward
+    feather.rotation.y = side * (0.5 - f * 0.3);      // fan from front to back
+    feather.position.set(side * (0.25 + f * 0.14), 0.1 + f * 0.14, -f * 0.09);
+    feather.scale.z = 0.3;                             // flatten into a blade
+    wing.add(feather);
+  }
+  return wing;
+}
+const wings = new THREE.Group();
+const wingL = buildWing(-1), wingR = buildWing(1);
+wings.add(wingL, wingR);
+wings.visible = false;
+scene.add(wings);
+
+let wingPhase = 0;
+function updateWings(dt) {
+  wings.visible = perk === 'wings';
+  if (!wings.visible) return;
+  wingPhase += dt * 11;
+  const flap = Math.sin(wingPhase) * 0.9;             // radians of flap
+  wingL.rotation.z = flap;
+  wingR.rotation.z = -flap;
+  wings.position.set(slipX, ballY + 0.22, ballZ - 0.05);
+}
 
 const texCache = new Map();
 function setBall(id) {
@@ -416,6 +454,7 @@ let state = S.MENU;
 let stateBeforePause = S.MENU;
 let speed = SPEED_START;
 let ballX = 0, ballZ = 0, ballY = BALL_R, velY = 0;
+let slipX = 0;              // actual lateral pos; lags ballX on icy terrain
 let grounded = true;
 let fellSfx = false;
 let loop = null;            // { theta, z0 } while inside a loop-the-loop
@@ -464,12 +503,13 @@ function applyLevel(newLevel, quiet = false) {
 
 function startRun() {
   const boosts = consumeArmedBoosts();
-  const startDist = DEV_START + (boosts.headstart ? 150 : 0);
+  const adminDist = ADMIN ? (adminStartLevel - 1) * LEVEL_LEN : 0;
+  const startDist = DEV_START + adminDist + (boosts.headstart ? 150 : 0);
   coinValue = (boosts.doubler ? 2 : 1) + (perk === 'flame' ? 1 : 0);
   shieldCharges = boosts.shield ? 1 : 0;
   slowmoTimer = boosts.slowmo ? 8 : 0;
   ballZ = -startDist;
-  ballX = 0; ballY = BALL_R; velY = 0;
+  ballX = 0; slipX = 0; ballY = BALL_R; velY = 0;
   grounded = true; fellSfx = false; loop = null;
   throttle = 0; boostTimer = 0;
   speed = Math.min(SPEED_MAX, SPEED_START + Math.min(startDist / 60, 5));
@@ -518,7 +558,7 @@ function shieldRespawn() {
     if (idx >= genIndex) ensureTrack(idx);
   }
   ballZ = segmentCenterZ(idx);
-  ballX = 0;
+  ballX = 0; slipX = 0;
   ballY = BALL_R + 3;
   velY = 0;
   grounded = false;
@@ -656,6 +696,7 @@ function step(dt) {
       const w = Math.max(effSpeed, 15) / LOOP_R;
       loop.theta += w * dt;
       ballX += (0 - ballX) * Math.min(1, dt * 8);
+      slipX = ballX;
       ballY = BALL_R + LOOP_R * (1 - Math.cos(loop.theta));
       ballZ = loop.z0 - LOOP_R * Math.sin(loop.theta);
       ball.rotation.x -= (w * LOOP_R * dt) / BALL_R;
@@ -680,6 +721,12 @@ function step(dt) {
       const seg = segments.get(segIndex);
       const frac = (-ballZ - segIndex * SEG_LEN) / SEG_LEN;
 
+      // Icy worlds (Snow/Ice): the ball's real position lags your steering,
+      // so control feels slippery. Elsewhere slipX tracks input exactly.
+      const slip = themeForSegment(segIndex).slippery;
+      if (slip && grounded) slipX += (ballX - slipX) * Math.min(1, dt * slip * 12);
+      else slipX = ballX;
+
       // Launch off the end of a ramp.
       if (segIndex !== lastSegIndex) {
         const prev = segments.get(lastSegIndex);
@@ -698,7 +745,7 @@ function step(dt) {
       if (seg) {
         if (seg.type === 'gap') supported = false;
         else if (seg.type === 'ramp') restY = BALL_R + RAMP_H * frac;
-        else supported = perk === 'wings' || !seg.holes[laneAt(ballX)]; // angel ball glides over holes
+        else supported = perk === 'wings' || !seg.holes[laneAt(slipX)]; // angel ball glides over holes
       }
 
       // Enter a loop.
@@ -736,7 +783,7 @@ function step(dt) {
       if (grounded && seg && seg.pads.length) {
         const wz = seg.group.position.z;
         for (const pad of seg.pads) {
-          if (!pad.hit && Math.abs(pad.x - ballX) < 1.05 && Math.abs(wz - ballZ) < 1.4) {
+          if (!pad.hit && Math.abs(pad.x - slipX) < 1.05 && Math.abs(wz - ballZ) < 1.4) {
             pad.hit = true;
             boostTimer = 1.3;
             sfxJump();
@@ -754,7 +801,7 @@ function step(dt) {
           boulders.splice(i, 1);
           continue;
         }
-        const dx = b.position.x - ballX, dz = b.position.z - ballZ;
+        const dx = b.position.x - slipX, dz = b.position.z - ballZ;
         if (state === S.PLAYING && ballY < 1.4 && dx * dx + dz * dz < 0.9 * 0.9) {
           if (perk === 'flame') {          // flame ball torches boulders
             scene.remove(b);
@@ -777,7 +824,7 @@ function step(dt) {
         for (const coin of s.coins) {
           if (!coin.visible) continue;
           const wz = s.group.position.z + coin.position.z;
-          const dx = coin.position.x - ballX, dz = wz - ballZ;
+          const dx = coin.position.x - slipX, dz = wz - ballZ;
           if (dx * dx + dz * dz < 0.65 * 0.65 && Math.abs(ballY - BALL_R) < 1) {
             coin.visible = false;
             coinsRun += coinValue;
@@ -815,15 +862,18 @@ function step(dt) {
     snow.position.z = ballZ + 10;
   }
 
-  ball.position.set(ballX, ballY, ballZ);
+  ball.position.set(slipX, ballY, ballZ);
+
+  // Angel wings: a flapping pair that follows the ball (not rolling with it).
+  updateWings(dt);
 
   // Speed streak: fades in with extra speed, hugs the track behind the ball.
   const glow = state === S.PLAYING && grounded
     ? Math.max(Math.max(0, extra) / 19, perk === 'flame' ? 0.5 : 0) : 0;
   trail.material.opacity += (Math.min(0.75, glow) - trail.material.opacity) * Math.min(1, dt * 8);
-  trail.position.set(ballX, 0.06, ballZ + 2.6);
+  trail.position.set(slipX, 0.06, ballZ + 2.6);
 
-  camX += (ballX * 0.55 - camX) * Math.min(1, dt * 5);
+  camX += (slipX * 0.55 - camX) * Math.min(1, dt * 5);
   camZ += (ballZ + 7 - camZ) * Math.min(1, dt * 6);
   const lift = Math.max(0, ballY - BALL_R);
   camera.position.set(camX, 3.4 + lift * 0.35, camZ);
@@ -888,6 +938,7 @@ function loopFrame(t) {
       if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;
     },
   });
+  if (ADMIN) enableAdmin();
   setBall(save.ball || BALLS[0].id);
   if (save.best) $('best-line').textContent = `Best run: ${save.best} m · ${save.coins || 0} coins banked`;
   hudLevel.textContent = 'Lv 1';
@@ -898,3 +949,34 @@ function loopFrame(t) {
   gameReady();
   if (DEMO) setTimeout(startRun, 900);
 })();
+
+// Admin unlock: own every ball, stacked coins & boosts, and a world-jump
+// row so you can check any level. Enabled by the ?admin=rolled740 URL.
+function enableAdmin() {
+  save.owned = BALLS.map((b) => b.id);
+  save.coins = Math.max(save.coins || 0, 999999);
+  save.boosts = { headstart: 99, shield: 99, doubler: 99, slowmo: 99 };
+  persist();
+  refreshShop();
+
+  const panel = document.createElement('div');
+  panel.className = 'admin-row';
+  panel.innerHTML = '<span class="admin-tag">ADMIN · jump to world</span>';
+  const btns = document.createElement('div');
+  btns.className = 'admin-btns';
+  THEMES.forEach((t, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'admin-btn';
+    btn.textContent = i + 1;
+    btn.title = t.name;
+    btn.addEventListener('click', () => {
+      adminStartLevel = i + 1;
+      panel.querySelectorAll('.admin-btn').forEach((b, j) => b.classList.toggle('sel', j === i));
+      showToast(`Admin: next run starts in ${t.name}`);
+    });
+    btns.appendChild(btn);
+  });
+  panel.appendChild(btns);
+  $('screen-start').insertBefore(panel, $('btn-play'));
+  showToast('🔓 Admin unlocked — everything owned');
+}

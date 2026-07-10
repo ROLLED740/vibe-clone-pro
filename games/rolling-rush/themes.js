@@ -144,8 +144,8 @@ function landmark() {
 export const THEMES = [
   { name: 'Jungle', sky: 0x8fc9a8, ground: 0x2f6d33, lanes: [0x7cb342, 0x689f38], rail: 0x8d6e63, accent: 0xff7043, decor: jungleTree },
   { name: 'Mountains', sky: 0xa7c4e2, ground: 0x5d7361, lanes: [0x9aa5ad, 0x87939c], rail: 0x546e7a, accent: 0x4fc3f7, decor: mountain },
-  { name: 'Snow', sky: 0xdde9f7, ground: 0xf2f6fd, lanes: [0xe4eefb, 0xd2e2f5], rail: 0x90caf9, accent: 0x42a5f5, decor: snowScene, snow: true },
-  { name: 'Ice', sky: 0xbfeef7, ground: 0x9fdcee, lanes: [0xb5ecf4, 0x93e0ec], rail: 0x26c6da, accent: 0x00acc1, decor: iceSpikes, snow: true },
+  { name: 'Snow', sky: 0xdde9f7, ground: 0xf2f6fd, lanes: [0xe4eefb, 0xd2e2f5], rail: 0x90caf9, accent: 0x42a5f5, decor: snowScene, snow: true, slippery: 0.5 },
+  { name: 'Ice', sky: 0xbfeef7, ground: 0x9fdcee, lanes: [0xb5ecf4, 0x93e0ec], rail: 0x26c6da, accent: 0x00acc1, decor: iceSpikes, snow: true, slippery: 0.28 },
   { name: 'Waterworld', sky: 0x7fc9f2, ground: 0x1565c0, lanes: [0xffcc80, 0xffb74d], rail: 0x8d6e63, accent: 0x29b6f6, decor: waterScene },
   { name: 'Junkyard', sky: 0xc9b28a, ground: 0x87755b, lanes: [0x9e8f7a, 0x8a7c68], rail: 0x5d4037, accent: 0xff8f00, decor: junkPile },
   { name: 'Pyramids', sky: 0xffe0a3, ground: 0xdcbe7a, lanes: [0xf0d090, 0xe4c47e], rail: 0xa1887f, accent: 0xffb300, decor: pyramidScene },
