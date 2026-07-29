@@ -289,6 +289,17 @@
   .acct-form input:focus { outline: none; border-color: #ffd23e; }
   .acct-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
+  /* Tip link — warm, inviting, never blocking play. */
+  a.btn.tip {
+    text-decoration: none;
+    display: inline-block;
+    font-size: clamp(13px, 2.2vh, 16px);
+    padding: 11px 26px;
+    color: #2a1450;
+    background: linear-gradient(180deg, #ffe9a8, #ffcf5c);
+    box-shadow: 0 4px 0 rgba(0,0,0,.22), 0 8px 18px rgba(0,0,0,.3);
+  }
+
   .lb {
     list-style: none;
     width: min(88vw, 380px);
@@ -334,6 +345,7 @@
     <button class="btn ghost" id="btn-account">👤 Sign in</button>
     <button class="btn ghost" id="btn-leaderboard">🏆 Top players</button>
   </div>
+  <a class="btn tip" href="https://rolled740.itch.io/rolling-rush" target="_blank" rel="noopener">💛 Enjoying it? Tip the dev on itch.io</a>
   <p class="hint" id="best-line"></p>
 </div>
 
@@ -375,6 +387,7 @@
   <div class="arm-row" id="boost-arm-row-over"></div>
   <button class="btn" id="btn-retry">PLAY AGAIN</button>
   <button class="btn ghost" id="btn-shop-over">🛒 SHOP</button>
+  <a class="btn tip" href="https://rolled740.itch.io/rolling-rush" target="_blank" rel="noopener">💛 Tip the dev on itch.io</a>
 </div>
 
 <div class="screen hidden" id="screen-shop">
