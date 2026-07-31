@@ -12,14 +12,19 @@ import ManageBillingButton from '../components/ManageBillingButton';
 import { checkIsAdmin } from '../../utils/auth';
 import SettingsModalTrigger from '../../components/SettingsModalTrigger';
 
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
+// Connect lazily inside the render: initialising at module scope makes the
+// production build fail whenever DATABASE_URL isn't present at build time.
+function getDb() {
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
+  return drizzle(neon(process.env.DATABASE_URL));
+}
 
 type CloneRecord = typeof clones.$inferSelect;
 
 export default async function Dashboard() {
   const { userId } = await auth();
   const safeUserId = userId || 'demo-user-123';
+  const db = getDb();
 
   const isAdmin = await checkIsAdmin();
 

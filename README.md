@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VibeClonePro
 
-## Getting Started
+AI app generator. Describe an app or upload a reference screenshot, and the
+swarm generates several styled React variants you can preview live and export.
 
-First, run the development server:
+Built on Next.js 16 (App Router) with Clerk for auth, Neon + Drizzle for data,
+Stripe for billing, Inngest for background builds, and Sandpack for live preview.
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill in the values
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+At minimum you need `DATABASE_URL`, the two Clerk keys, and one AI provider key.
+Stripe keys are only needed to exercise checkout. See `.env.example` for the
+full list and what each one gates.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Apply the schema with:
 
-## Learn More
+```bash
+npx drizzle-kit generate   # after changing db/schema.ts
+npx drizzle-kit migrate
+```
 
-To learn more about Next.js, take a look at the following resources:
+## How a build works
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. `/editor` posts the prompt and any uploaded image to `POST /api/clone`.
+2. The route authenticates, ensures a `users` row exists, then calls
+   `runBuild()` in `lib/generate.ts`.
+3. `runBuild` checks the caller's monthly quota (`lib/entitlements.ts`), runs an
+   optional Gemini vision pass over the uploaded image, then generates one
+   variant per entry in `VARIANTS` — Anthropic first, falling back to xAI and
+   Gemini per attempt.
+4. Variants are persisted to `clones`, grouped by `build_id`, and returned to
+   the editor for the variant switcher and live Sandpack preview.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`app/actions/swarm.ts` queues the same `runBuild` on Inngest for builds that
+shouldn't hold a request open; results are read back from `/api/clone/[id]`.
 
-## Deploy on Vercel
+## Billing
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`lib/plans.ts` is the single source of truth for tiers, prices, feature lists,
+the comparison matrix, FAQ copy, and monthly build limits. The pricing page, the
+checkout action, and the quota check all read from it.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Clients never send an amount or a Stripe price ID — they send a plan id, and the
+server resolves the price from the `STRIPE_PRICE_*` env vars. A plan with no
+configured price ID reports as unavailable instead of charging the wrong amount.
+
+To change a price: update `lib/plans.ts` and point the matching env var at the
+new Stripe price. To add a tier: add it to `PLANS`, give it a `priceEnv`, add a
+`MONTHLY_BUILD_LIMIT` entry, and add a column to `COMPARISON`.
+
+## Layout
+
+| Path | What's there |
+| --- | --- |
+| `app/pricing` | Pricing page (server) + `app/components/PricingTable.tsx` (client) |
+| `app/editor` | Prompt UI, variant switcher, live Sandpack preview |
+| `app/preview/[id]` | Single stored variant, scoped to its owner |
+| `app/api/clone` | Synchronous build endpoint |
+| `app/api/webhooks/stripe` | Subscription lifecycle sync into Neon |
+| `lib/` | Plans, entitlements, model IDs, shared generation logic |
+| `proxy.ts` | Clerk route protection + maintenance kill switch |
+
+`vibe-clone-pro-export/` and `vibe-clone-pro-export.zip` are a point-in-time
+snapshot of the app, excluded from the build and lint.

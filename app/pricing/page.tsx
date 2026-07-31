@@ -1,104 +1,61 @@
-'use client';
-import React, { useState } from 'react';
-import { Check, Sparkles } from 'lucide-react';
-import CheckoutModal from '@/components/CheckoutModal';
+import type { Metadata } from 'next';
+import { auth } from '@clerk/nextjs/server';
+import { neon } from '@neondatabase/serverless';
+import { drizzle } from 'drizzle-orm/neon-http';
+import { desc, eq } from 'drizzle-orm';
+import { users, subscriptions } from '@/db/schema';
+import { PLANS, resolveStripePriceId } from '@/lib/plans';
+import PricingTable from '../components/PricingTable';
 
-export default function PricingPage() {
-  const [isModalOpen, setModalOpen] = useState(false);
-  const [selectedPrice, setSelectedPrice] = useState(0);
-  // Add state to track which tier is clicked
-  const [activeTier, setActiveTier] = useState<string>('lifetime');
+export const metadata: Metadata = {
+  title: 'Pricing — VibeClonePro',
+  description:
+    'Start free, upgrade when your builds start shipping. Every paid VibeClonePro plan includes the full Next.js export and commercial rights.',
+};
 
-  const handleBuy = (price: number, tierName: string) => {
-    setActiveTier(tierName);
-    setSelectedPrice(price);
-    setModalOpen(true);
-  };
+// Billing state is per-user, so this page can't be statically cached.
+export const dynamic = 'force-dynamic';
 
-  return (
-    <main className="min-h-screen bg-[#020502] pt-20 pb-20 px-4">
-      <CheckoutModal
-        isOpen={isModalOpen}
-        onClose={() => setModalOpen(false)}
-        price={selectedPrice}
-      />
+/**
+ * Works out which plan the signed-in user is already on, so their card renders
+ * as "Current plan" instead of offering a duplicate purchase.
+ */
+async function getCurrentPlanId(userId: string | null): Promise<string | null> {
+  if (!userId || !process.env.DATABASE_URL) return null;
 
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-white mb-4">Elevate your creative workflow</h1>
-          <p className="text-gray-400 max-w-xl mx-auto">Choose the engine power that fits your studio needs.</p>
-        </div>
+  try {
+    const db = drizzle(neon(process.env.DATABASE_URL));
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+    if (user?.lifetimeAccess) return 'lifetime';
 
-          {/* STARTER */}
-          <div
-            onClick={() => setActiveTier('starter')}
-            className={`cursor-pointer p-8 rounded-2xl flex flex-col transition-all duration-300 ${activeTier === 'starter' ? 'border-2 border-cyan-500 bg-[#0A0F14] shadow-[0_0_30px_rgba(6,182,212,0.1)]' : 'border border-gray-800 bg-[#0A0F14]/50 opacity-80'}`}
-          >
-            <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
-            <div className="text-4xl font-bold text-white mb-6">$0<span className="text-sm font-normal text-gray-500">/forever</span></div>
-            <button className="w-full py-3 rounded border border-gray-700 text-white hover:bg-gray-800 mb-8 transition-all">Current Plan</button>
-            <ul className="space-y-4 text-sm text-gray-400">
-              <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> 3 AI Stitches per month</li>
-              <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> Standard Build Queue</li>
-            </ul>
-          </div>
+    const [sub] = await db
+      .select()
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .orderBy(desc(subscriptions.updatedAt))
+      .limit(1);
 
-          {/* PRO */}
-          <div
-            onClick={() => setActiveTier('pro')}
-            className={`cursor-pointer p-8 rounded-2xl flex flex-col transition-all duration-300 ${activeTier === 'pro' ? 'border-2 border-cyan-500 bg-[#0A0F14] shadow-[0_0_30px_rgba(6,182,212,0.15)]' : 'border border-gray-800 bg-[#0A0F14]/50 opacity-80'}`}
-          >
-            <h3 className="text-xl font-bold text-white mb-2">Pro</h3>
-            <div className="text-4xl font-bold text-white mb-6">$29<span className="text-sm font-normal text-gray-500">/month</span></div>
-            <button
-              onClick={(e) => { e.stopPropagation(); handleBuy(29, 'pro'); }}
-              className={`w-full py-3 rounded text-white font-bold mb-8 transition-all ${activeTier === 'pro' ? 'bg-cyan-500 text-black hover:bg-cyan-400' : 'border border-gray-700 hover:bg-gray-800'}`}
-            >
-              Choose Pro
-            </button>
-            <ul className="space-y-4 text-sm text-gray-400">
-              <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> 10 builds per month</li>
-              <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> Priority Build Queue</li>
-            </ul>
-          </div>
+    if (!sub || (sub.status !== 'active' && sub.status !== 'trialing')) return 'starter';
 
-          {/* LIFETIME */}
-          <div
-            onClick={() => setActiveTier('lifetime')}
-            className={`cursor-pointer relative p-1 rounded-2xl transition-all duration-300 ${activeTier === 'lifetime' ? 'bg-gradient-to-b from-cyan-500 to-blue-600 shadow-[0_0_40px_rgba(6,182,212,0.2)]' : 'bg-gray-800 opacity-80'}`}
-          >
-            {activeTier === 'lifetime' && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-cyan-400 text-black text-[10px] font-bold rounded-full uppercase tracking-wider">
-                Best Value
-              </div>
-            )}
-            <div className="h-full p-8 rounded-xl bg-[#05080a] flex flex-col">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-xl font-bold text-white">Lifetime Access</h3>
-                <Sparkles size={20} className={activeTier === 'lifetime' ? 'text-cyan-400' : 'text-gray-500'} />
-              </div>
-              <div className="text-5xl font-bold text-white mb-1">$499</div>
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-6">One-time payment</div>
+    // Map the Stripe price back onto a plan by checking each plan's configured IDs.
+    for (const plan of PLANS) {
+      const monthly = resolveStripePriceId(plan, 'monthly');
+      const yearly = resolveStripePriceId(plan, 'yearly');
+      if (sub.stripePriceId === monthly || sub.stripePriceId === yearly) return plan.id;
+    }
 
-              <button
-                onClick={(e) => { e.stopPropagation(); handleBuy(499, 'lifetime'); }}
-                className={`w-full py-4 rounded font-bold mb-8 transition-all ${activeTier === 'lifetime' ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.3)]' : 'border border-gray-700 text-white hover:bg-gray-800'}`}
-              >
-                BUY LIFETIME ACCESS
-              </button>
+    return null;
+  } catch (err) {
+    // Pricing must render even if the database is unreachable.
+    console.error('Could not resolve current plan:', err);
+    return null;
+  }
+}
 
-              <ul className="space-y-4 text-sm text-gray-300">
-                <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> Unlimited builds forever</li>
-                <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> Pay once, own forever</li>
-                <li className="flex gap-3"><Check size={16} className="text-cyan-500" /> Commercial Rights Included</li>
-              </ul>
-            </div>
-          </div>
+export default async function PricingPage() {
+  const { userId } = await auth();
+  const currentPlanId = await getCurrentPlanId(userId);
 
-        </div>
-      </div>
-    </main>
-  );
+  return <PricingTable isSignedIn={Boolean(userId)} currentPlanId={currentPlanId} />;
 }

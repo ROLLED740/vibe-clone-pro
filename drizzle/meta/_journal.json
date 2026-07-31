@@ -15,6 +15,13 @@
       "when": 1774285747534,
       "tag": "0001_famous_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785534674566,
+      "tag": "0002_acoustic_cyclops",
+      "breakpoints": true
     }
   ]
 }

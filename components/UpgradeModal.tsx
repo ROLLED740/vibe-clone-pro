@@ -20,7 +20,7 @@ export default function UpgradeModal({ isOpen, onClose, tier }: UpgradeModalProp
           {tier === 'free' ? "Free Vibes Exhausted" : "Pro Limit Reached"}
         </h2>
         <p className="text-zinc-400 mb-8">
-          You've used your {tier === 'free' ? '5' : '50'} monthly builds. Upgrade now to keep building your vision in the Bunker.
+          You&apos;ve used your {tier === 'free' ? '5' : '50'} monthly builds. Upgrade now to keep building your vision in the Bunker.
         </p>
 
         <div className="space-y-4">

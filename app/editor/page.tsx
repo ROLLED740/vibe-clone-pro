@@ -1,12 +1,26 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2, AlertTriangle } from 'lucide-react';
+import { Upload, Zap, Sparkles, X, ChevronRight, Loader2, Code2, AlertTriangle, Layers } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Sandpack } from '@codesandbox/sandpack-react';
 import CopilotChat from '../../components/editor/CopilotChat';
-import { triggerSwarmAction } from '../actions/swarm';
+
+interface GeneratedVariant {
+  id: string;
+  variant: string;
+  code: string;
+  previewUrl: string;
+}
+
+interface BuildUsage {
+  limit: number | null;
+  remaining: number | null;
+  planName: string;
+}
+
+const IDLE_CODE = `export default function App() { return <div className="p-10 bg-black text-cyan-400 font-mono flex items-center justify-center h-screen uppercase tracking-widest text-2xl border-2 border-cyan-400">AWAITING SWARM INJECTION...</div> }`;
 
 export default function Editor() {
   const [idea, setIdea] = useState('');
@@ -15,7 +29,11 @@ export default function Editor() {
   const [isCloning, setIsCloning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeCode, setActiveCode] = useState<string>(`export default function App() { return <div className="p-10 bg-black text-cyan-400 font-mono flex items-center justify-center h-screen uppercase tracking-widest text-2xl border-2 border-cyan-400">AWAITING SWARM INJECTION...</div> }`);
+  const [activeCode, setActiveCode] = useState<string>(IDLE_CODE);
+  const [variants, setVariants] = useState<GeneratedVariant[]>([]);
+  const [activeVariantId, setActiveVariantId] = useState<string | null>(null);
+  const [usage, setUsage] = useState<BuildUsage | null>(null);
+  const [quotaHit, setQuotaHit] = useState(false);
   const [errorToast, setErrorToast] = useState<string | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -39,27 +57,47 @@ export default function Editor() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const selectVariant = (variant: GeneratedVariant) => {
+    setActiveVariantId(variant.id);
+    setActiveCode(variant.code);
+  };
+
   const triggerSwarm = async () => {
     if (!idea.trim() && !imageBase64) return;
 
     setIsCloning(true);
     setErrorToast(null);
+    setQuotaHit(false);
+    setVariants([]);
+    setActiveVariantId(null);
 
     // Instrument panel loading state
-    setActiveCode(`export default function App() { return <div className="p-10 bg-[#050505] text-cyan-500 font-mono flex items-center justify-center h-screen animate-pulse uppercase tracking-widest border border-cyan-500/20 shadow-[0_0_40px_rgba(0,255,255,0.1)]">Swarm generation active... (Inngest event dispatched)</div> }`);
+    setActiveCode(`export default function App() { return <div className="p-10 bg-[#050505] text-cyan-500 font-mono flex items-center justify-center h-screen animate-pulse uppercase tracking-widest border border-cyan-500/20 shadow-[0_0_40px_rgba(0,255,255,0.1)]">Swarm generation active...</div> }`);
 
     try {
-      const payload = {
-        userId: "demo-user-123", // Non-Clerk fallback purely for the sandbox
-        prompt: idea,
-        provider: "google"
-      };
+      const res = await fetch('/api/clone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idea, imageBase64 }),
+      });
 
-      const resultString = await triggerSwarmAction(payload);
-      setActiveCode(resultString);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data?.code === 'quota_exceeded') setQuotaHit(true);
+        throw new Error(data?.error || 'Generation failed');
+      }
+
+      const returned: GeneratedVariant[] = data.variants ?? [];
+      if (returned.length === 0) throw new Error('The swarm returned no variants.');
+
+      setVariants(returned);
+      selectVariant(returned[0]);
+      if (data.usage) setUsage(data.usage);
     } catch (error: unknown) {
       console.error('Clone failed:', error);
-      setErrorToast('Failed to trigger Inngest event.');
+      setErrorToast(error instanceof Error ? error.message : 'Generation failed');
+      setActiveCode(IDLE_CODE);
     } finally {
       setIsCloning(false);
     }
@@ -72,6 +110,14 @@ export default function Editor() {
           <div className="bg-cyan-500/10 border border-cyan-500/50 text-cyan-400 px-4 py-3 shadow-[0_0_20px_rgba(0,255,255,0.2)] flex items-center gap-3 w-max max-w-[90vw]">
             <AlertTriangle size={18} className="shrink-0" />
             <span className="text-sm font-medium">{errorToast}</span>
+            {quotaHit && (
+              <Link
+                href="/pricing"
+                className="shrink-0 border border-cyan-500 bg-cyan-500 px-3 py-1 text-xs font-bold uppercase tracking-widest text-black transition-colors hover:bg-cyan-400"
+              >
+                Upgrade
+              </Link>
+            )}
             <button aria-label="Dismiss error" onClick={() => setErrorToast(null)} className="p-1 hover:bg-cyan-500/20 transition-colors ml-4 shrink-0">
               <X size={14} />
             </button>
@@ -138,7 +184,32 @@ export default function Editor() {
               />
             </div>
 
-            </div>
+            {variants.length > 0 && (
+              <>
+                <div className="h-px w-full bg-cyan-900/30" />
+                <div>
+                  <h2 className="text-cyan-500 font-bold mb-2 flex items-center gap-2 uppercase tracking-wider text-sm">
+                    <Layers size={16} /> Swarm Output
+                  </h2>
+                  <div className="space-y-2">
+                    {variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        onClick={() => selectVariant(variant)}
+                        className={`w-full border px-3 py-2.5 text-left text-xs uppercase tracking-widest transition-all ${
+                          activeVariantId === variant.id
+                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300 shadow-[0_0_15px_rgba(0,255,255,0.15)]'
+                            : 'border-cyan-900/50 text-cyan-700 hover:border-cyan-500/60 hover:text-cyan-400'
+                        }`}
+                      >
+                        {variant.variant}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="p-4 border-t border-cyan-900/50 bg-[#000000]">
             <button
@@ -154,6 +225,26 @@ export default function Editor() {
             >
               {isCloning ? <><Loader2 size={18} className="animate-spin" /> ENGAGED</> : <><Zap size={18} /> INITIALIZE SEQUENCE</>}
             </button>
+
+            {usage && (
+              <p className="mt-3 text-center text-[10px] uppercase tracking-widest text-cyan-800">
+                {usage.remaining === null ? (
+                  <>{usage.planName} — unlimited builds</>
+                ) : (
+                  <>
+                    {usage.remaining} of {usage.limit} builds left this month
+                    {usage.remaining <= 1 && (
+                      <>
+                        {' · '}
+                        <Link href="/pricing" className="text-cyan-500 hover:text-cyan-300">
+                          Upgrade
+                        </Link>
+                      </>
+                    )}
+                  </>
+                )}
+              </p>
+            )}
           </div>
         </div>
 

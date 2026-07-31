@@ -2,7 +2,6 @@ import { Pool } from 'pg';
 
 declare global {
   // allow global pool across module reloads in development
-  // eslint-disable-next-line no-var
   var __pgPool: Pool | undefined;
 }
 

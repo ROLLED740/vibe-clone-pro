@@ -14,6 +14,9 @@ export const users = pgTable('users', {
 export const clones = pgTable('clones', {
     id: uuid('id').defaultRandom().primaryKey(),
     userId: text('user_id').references(() => users.id),
+    // Groups the variants produced by a single build, so usage can be metered
+    // per build rather than per generated variant.
+    buildId: uuid('build_id'),
     input: jsonb('input').notNull(),
     vibeData: jsonb('vibe_data').notNull(),
     generatedCode: text('generated_code').notNull(),

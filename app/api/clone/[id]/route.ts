@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { clones } from '../../../../db/schema';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import pino from 'pino';
 
 export const dynamic = 'force-dynamic';
@@ -36,10 +36,11 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
             return NextResponse.json({ error: 'Missing ID parameter' }, { status: 400 });
         }
 
+        // Scope the lookup to the caller so one user can't read another's build.
         const cloneRecords = await db
             .select()
             .from(clones)
-            .where(eq(clones.id, id));
+            .where(and(eq(clones.id, id), eq(clones.userId, userId)));
 
         if (!cloneRecords || cloneRecords.length === 0) {
             // Background job hasn't inserted it yet

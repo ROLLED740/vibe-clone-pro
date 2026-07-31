@@ -2,9 +2,17 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/editor(.*)']);
+const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/editor(.*)', '/preview(.*)']);
+
+// Webhooks are called by Stripe/Inngest, never by a signed-in browser, so the
+// maintenance rewrite must not swallow them.
+const isWebhook = createRouteMatcher(['/api/webhooks(.*)', '/api/inngest(.*)']);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (isWebhook(req)) {
+    return NextResponse.next();
+  }
+
   // Emergency Kill Switch via Vercel Edge Config
   try {
     const isMaintenanceMode = await get('maintenance');
@@ -36,7 +44,10 @@ export default clerkMiddleware(async (auth, req) => {
 
 export const config = {
   matcher: [
-    // Skip Next.js internals, static files, images, favicons, API routes, and maintenance
-    '/((?!_next|api|trpc|maintenance|favicon\\.ico|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Skip Next.js internals, static files, images, favicons, and maintenance
+    '/((?!_next|api|trpc|maintenance|favicon\\.ico|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest|mp4|MP4)).*)',
+    // API routes must run through Clerk too, otherwise auth() has no context
+    // inside route handlers and every authenticated endpoint throws.
+    '/(api|trpc)(.*)',
   ],
 };

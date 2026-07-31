@@ -63,24 +63,67 @@ const CheckoutForm = ({ price, onSuccess }: { price: number, onSuccess: () => vo
   );
 };
 
-export default function CheckoutModal({ isOpen, onClose, price }: { isOpen: boolean, onClose: () => void, price: number }) {
+interface CheckoutModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  planId: string;
+  interval?: 'monthly' | 'yearly';
+}
+
+export default function CheckoutModal({ isOpen, onClose, planId, interval = 'monthly' }: CheckoutModalProps) {
+  if (!isOpen) return null;
+
+  // Keyed so reopening (or switching plan) mounts a fresh body with clean
+  // state, rather than resetting state from inside an effect.
+  return (
+    <CheckoutModalBody
+      key={`${planId}-${interval}`}
+      onClose={onClose}
+      planId={planId}
+      interval={interval}
+    />
+  );
+}
+
+function CheckoutModalBody({
+  onClose,
+  planId,
+  interval,
+}: Omit<CheckoutModalProps, 'isOpen'> & { interval: 'monthly' | 'yearly' }) {
   const [clientSecret, setClientSecret] = useState('');
+  const [amount, setAmount] = useState(0);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
-      setClientSecret(''); // Reset on reopen
-      fetch('/api/stripe/create-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: price * 100 }), 
-      })
-      .then(res => res.json())
-      .then(data => setClientSecret(data.clientSecret))
-      .catch(err => console.error("Stripe Fetch Error:", err));
-    }
-  }, [isOpen, price]);
+    let cancelled = false;
 
-  if (!isOpen) return null;
+    // The server derives the amount from the plan id, so the price shown here
+    // comes back from the API rather than from the client.
+    fetch('/api/stripe/create-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planId, interval }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || 'Could not start checkout');
+        return data;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setClientSecret(data.clientSecret);
+        setAmount(data.amount ?? 0);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Stripe Fetch Error:', err);
+        setLoadError(err instanceof Error ? err.message : 'Could not start checkout');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planId, interval]);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -91,9 +134,11 @@ export default function CheckoutModal({ isOpen, onClose, price }: { isOpen: bool
         </div>
         
         <div className="p-6">
-          {clientSecret ? (
+          {loadError ? (
+            <div className="py-10 text-center text-sm text-red-400">{loadError}</div>
+          ) : clientSecret ? (
             <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#06b6d4' } } }}>
-              <CheckoutForm price={price} onSuccess={onClose} />
+              <CheckoutForm price={amount} onSuccess={onClose} />
             </Elements>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 gap-4">

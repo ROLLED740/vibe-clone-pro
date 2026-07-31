@@ -6,10 +6,14 @@ import { eq } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 
-const sql = neon(process.env.DATABASE_URL!);
-const db = drizzle(sql);
-
 export const dynamic = 'force-dynamic';
+
+// Connect lazily inside the handler: initialising at module scope makes the
+// production build fail whenever DATABASE_URL isn't present at build time.
+function getDb() {
+  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured');
+  return drizzle(neon(process.env.DATABASE_URL));
+}
 
 export async function POST(req: Request) {
   // 1. Build-Safe Environment Check
@@ -43,6 +47,8 @@ export async function POST(req: Request) {
 
   // 3. Handle the Billing Events
   try {
+    const db = getDb();
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;

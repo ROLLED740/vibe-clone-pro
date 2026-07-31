@@ -1,45 +1,27 @@
 import { inngest } from "./client";
-import { drizzle } from 'drizzle-orm/neon-http';
-import { neon } from '@neondatabase/serverless';
-import { userApiKeys } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { runBuild } from "@/lib/generate";
 
+/**
+ * Background build worker. Shares `runBuild` with the synchronous /api/clone
+ * route so both paths generate, meter and persist identically.
+ */
 export const runSwarmGeneration = inngest.createFunction(
-  { id: "run-swarm-generation" },
-  { event: "swarm/generate" },
-  // @ts-expect-error - Inngest v3 payload typing bypass
+  { id: "run-swarm-generation", triggers: [{ event: "swarm/generate" }] },
   async ({ event, step }) => {
-    const { userId, prompt, provider } = event.data;
-    console.log(`[Swarm] Generating with provider: ${provider}`);
+    const { userId, prompt, imageBase64 } = event.data as {
+      userId: string;
+      prompt?: string;
+      imageBase64?: string;
+    };
 
-    // Securely retrieve the user's keys using step.run
-    const keys = await step.run("fetch-api-keys", async () => {
-      const sql = neon(process.env.DATABASE_URL!);
-      const db = drizzle(sql);
-
-      const dbKeys = await db.select()
-        .from(userApiKeys)
-        .where(eq(userApiKeys.userId, userId))
-        .limit(1);
-
-      return dbKeys.length > 0 ? dbKeys[0] : null;
-    });
-
-    if (!keys) {
-      throw new Error("API keys not configured.");
+    if (!userId) {
+      throw new Error("swarm/generate requires a userId");
     }
 
-    // Instead of timing out, the LLM call runs asynchronously and is stubbed
-    await step.sleep("simulate-swarm", "5s");
+    const result = await step.run("run-build", () =>
+      runBuild({ userId, idea: prompt, imageBase64 })
+    );
 
-    return `export default function Component() {
-  return (
-    <div className="p-8 bg-black text-cyan-400 min-h-screen font-mono flex items-center justify-center">
-      <h1 className="text-2xl uppercase tracking-widest border border-cyan-500 p-6 shadow-[0_0_30px_rgba(0,255,255,0.4)]">
-        ${prompt || "Swarm Output"}
-      </h1>
-    </div>
-  );
-}`;
+    return result;
   }
 );

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Point-in-time snapshot of the app, not source we lint or build.
+    "vibe-clone-pro-export/**",
   ]),
 ]);
 
