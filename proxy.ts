@@ -2,7 +2,12 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { get } from '@vercel/edge-config';
 
-const isProtectedRoute = createRouteMatcher(['/dashboard(.*)', '/editor(.*)', '/preview(.*)']);
+const isProtectedRoute = createRouteMatcher([
+  '/dashboard(.*)',
+  '/editor(.*)',
+  '/preview(.*)',
+  '/studio(.*)',
+]);
 
 // Webhooks are called by Stripe/Inngest, never by a signed-in browser, so the
 // maintenance rewrite must not swallow them.
