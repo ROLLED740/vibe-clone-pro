@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { ensureMonthlyGrant, getBalance } from '@/lib/credits';
-import { getEntitlements } from '@/lib/entitlements';
-import { ensureUserRow, listGenerations } from '@/lib/video/generations';
-import { isUsingStubProvider } from '@/lib/video/provider';
+import { ensureMonthlyGrant, getBalance } from '@/lib/clips/credits';
+import { getClipPlanId, getClipPlanName } from '@/lib/clips/entitlements';
+import { ensureUserRow, listGenerations } from '@/lib/clips/generations';
+import { isUsingStubProvider } from '@/lib/clips/provider';
 import StudioClient, { type Generation } from './StudioClient';
 
 export const metadata: Metadata = {
@@ -16,17 +16,17 @@ export const dynamic = 'force-dynamic';
 
 export default async function StudioPage() {
   const { userId } = await auth();
-  if (!userId) redirect('/sign-in?redirect_url=/studio');
+  if (!userId) redirect('/sign-in?redirect_url=/clips/studio');
 
   const clerkUser = await currentUser();
   await ensureUserRow(userId, clerkUser?.emailAddresses?.[0]?.emailAddress);
   // Idempotent per billing period, so calling it on load beats needing a cron.
   await ensureMonthlyGrant(userId);
 
-  const [rows, balance, entitlements] = await Promise.all([
+  const [rows, balance, planId] = await Promise.all([
     listGenerations(userId),
     getBalance(userId),
-    getEntitlements(userId),
+    getClipPlanId(userId),
   ]);
 
   // Dates don't survive the server/client boundary as Date objects.
@@ -46,7 +46,7 @@ export default async function StudioPage() {
     <StudioClient
       initialItems={items}
       initialBalance={balance}
-      planName={entitlements.planName}
+      planName={getClipPlanName(planId)}
       usingStubProvider={isUsingStubProvider()}
     />
   );

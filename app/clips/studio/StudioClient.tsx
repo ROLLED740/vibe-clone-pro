@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Download, Film, Loader2, Sparkles, Wand2, AlertTriangle, X } from 'lucide-react';
-import { TEMPLATES, DEFAULT_TEMPLATE_ID } from '@/lib/video/templates';
+import { TEMPLATES, DEFAULT_TEMPLATE_ID } from '@/lib/clips/templates';
 
 const ASPECTS = [
   { id: '9:16', label: 'Vertical', box: 'aspect-[9/16] w-6' },
@@ -77,7 +77,7 @@ export default function StudioClient({
       await Promise.all(
         ids.map(async (id) => {
           try {
-            const res = await fetch(`/api/generations/${id}`, { cache: 'no-store' });
+            const res = await fetch(`/api/clips/generations/${id}`, { cache: 'no-store' });
             if (!res.ok) return;
             const data = await res.json();
             if (cancelled) return;
@@ -104,7 +104,7 @@ export default function StudioClient({
     setNeedsUpgrade(false);
 
     try {
-      const res = await fetch('/api/generations', {
+      const res = await fetch('/api/clips/generations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,7 +138,7 @@ export default function StudioClient({
   return (
     <div className="min-h-screen bg-[#0B0B0C] text-white">
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#0B0B0C]/95 px-4 backdrop-blur sm:px-6">
-        <Link href="/" className="text-lg font-black tracking-tight">
+        <Link href="/clips/studio" className="text-lg font-black tracking-tight">
           VIBE<span className="text-[#06b6d4]">CLIPS</span>
         </Link>
         <div className="flex items-center gap-4 text-sm">
@@ -147,7 +147,7 @@ export default function StudioClient({
             {balance} credits
           </span>
           <Link
-            href="/pricing"
+            href="/clips/pricing"
             className="rounded-lg bg-[#06A8C4] px-4 py-2 font-semibold transition-colors hover:bg-[#0895AE]"
           >
             Upgrade
@@ -241,7 +241,7 @@ export default function StudioClient({
               <AlertTriangle size={16} className="mt-0.5 shrink-0" />
               <span className="flex-1">{error}</span>
               {needsUpgrade && (
-                <Link href="/pricing" className="shrink-0 font-bold text-white underline">
+                <Link href="/clips/pricing" className="shrink-0 font-bold text-white underline">
                   Upgrade
                 </Link>
               )}

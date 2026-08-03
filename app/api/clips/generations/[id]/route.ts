@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getBalance } from '@/lib/credits';
-import { refreshGeneration } from '@/lib/video/generations';
+import { getBalance } from '@/lib/clips/credits';
+import { refreshGeneration } from '@/lib/clips/generations';
 
 export const dynamic = 'force-dynamic';
 

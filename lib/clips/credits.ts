@@ -4,11 +4,11 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { and, eq, sql } from 'drizzle-orm';
 import { creditLedger } from '@/db/schema';
-import { getPlanIdForUser } from '@/lib/entitlements';
-import type { PlanId } from '@/lib/plans';
+import { getClipPlanId } from '@/lib/clips/entitlements';
+import type { ClipPlanId } from '@/lib/clips/plans';
 
 /** Credits granted at the start of each billing period, by plan. */
-export const MONTHLY_CREDITS: Record<PlanId, number> = {
+export const MONTHLY_CREDITS: Record<ClipPlanId, number> = {
   free: 0,
   starter: 50,
   pro: 200,
@@ -17,7 +17,7 @@ export const MONTHLY_CREDITS: Record<PlanId, number> = {
 };
 
 /** First-month bonus on top of the usual grant. Mirrors the pricing page copy. */
-export const FIRST_MONTH_BONUS: Partial<Record<PlanId, number>> = {
+export const FIRST_MONTH_BONUS: Partial<Record<ClipPlanId, number>> = {
   pro: 100,
 };
 
@@ -85,7 +85,7 @@ export async function ensureMonthlyGrant(userId: string): Promise<void> {
 
   if (existing.length > 0) return;
 
-  const planId = await getPlanIdForUser(userId);
+  const planId = await getClipPlanId(userId);
   const amount = MONTHLY_CREDITS[planId];
   if (amount <= 0) return;
 

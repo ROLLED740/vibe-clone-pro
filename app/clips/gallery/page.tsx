@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { listPublicGenerations } from '@/lib/video/generations';
+import { listPublicGenerations } from '@/lib/clips/generations';
 
 export const metadata: Metadata = {
   title: 'Gallery — VibeClips',
@@ -28,7 +28,7 @@ export default async function GalleryPage() {
             Public generations from the community. Pro and Ultra generations stay private.
           </p>
           <Link
-            href="/studio"
+            href="/clips/studio"
             className="mt-8 inline-block rounded-lg bg-[#06A8C4] px-6 py-3 font-bold transition-colors hover:bg-[#0895AE]"
           >
             Make your own

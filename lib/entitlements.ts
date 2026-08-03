@@ -27,12 +27,12 @@ function startOfMonth(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-/** Resolves which plan a user is on, defaulting to the free tier. */
+/** Resolves which plan a user is on, defaulting to starter. */
 export async function getPlanIdForUser(userId: string): Promise<PlanId> {
   const database = db();
 
   const [user] = await database.select().from(users).where(eq(users.id, userId)).limit(1);
-  if (user?.lifetimeAccess) return 'ultra';
+  if (user?.lifetimeAccess) return 'lifetime';
 
   const [sub] = await database
     .select()
@@ -41,7 +41,7 @@ export async function getPlanIdForUser(userId: string): Promise<PlanId> {
     .orderBy(desc(subscriptions.updatedAt))
     .limit(1);
 
-  if (!sub || (sub.status !== 'active' && sub.status !== 'trialing')) return 'free';
+  if (!sub || (sub.status !== 'active' && sub.status !== 'trialing')) return 'starter';
 
   for (const plan of PLANS) {
     if (
@@ -79,7 +79,7 @@ export async function getBuildsThisMonth(userId: string): Promise<number> {
 export async function getEntitlements(userId: string): Promise<Entitlements> {
   const planId = await getPlanIdForUser(userId);
   const limit = MONTHLY_BUILD_LIMIT[planId];
-  const planName = PLANS.find((p) => p.id === planId)?.name ?? 'Free plan';
+  const planName = PLANS.find((p) => p.id === planId)?.name ?? 'Starter';
 
   if (limit === null) {
     return { planId, planName, limit: null, used: 0, remaining: null, canBuild: true };

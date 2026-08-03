@@ -4,13 +4,11 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-http';
 import { and, desc, eq, gte } from 'drizzle-orm';
 import { generations, users } from '@/db/schema';
-import { CREDIT_COST, InsufficientCreditsError, refundCredits, spendCredits } from '@/lib/credits';
-import { getPlanIdForUser } from '@/lib/entitlements';
-import { getProvider, isAspectRatio, type MediaKind } from '@/lib/video/provider';
-import { buildPrompt, getTemplate } from '@/lib/video/templates';
-
-/** Static previews a free user may run per day, matching the pricing page. */
-export const FREE_DAILY_PREVIEWS = 30;
+import { CREDIT_COST, InsufficientCreditsError, refundCredits, spendCredits } from '@/lib/clips/credits';
+import { getClipPlanId } from '@/lib/clips/entitlements';
+import { getProvider, isAspectRatio, type MediaKind } from '@/lib/clips/provider';
+import { buildPrompt, getTemplate } from '@/lib/clips/templates';
+import { FREE_DAILY_PREVIEWS } from '@/lib/clips/plans';
 
 /** Plans whose generations default to private. */
 const PRIVATE_PLANS = new Set(['pro', 'ultra', 'enterprise']);
@@ -88,7 +86,7 @@ export async function createGeneration(params: {
     params.aspectRatio && isAspectRatio(params.aspectRatio) ? params.aspectRatio : '9:16';
 
   const database = db();
-  const planId = await getPlanIdForUser(userId);
+  const planId = await getClipPlanId(userId);
 
   // Videos are a paid feature; free users generate stills and upgrade to animate.
   if (kind === 'video' && planId === 'free') {

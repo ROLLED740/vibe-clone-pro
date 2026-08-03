@@ -6,7 +6,7 @@ const isProtectedRoute = createRouteMatcher([
   '/dashboard(.*)',
   '/editor(.*)',
   '/preview(.*)',
-  '/studio(.*)',
+  '/clips/studio(.*)',
 ]);
 
 // Webhooks are called by Stripe/Inngest, never by a signed-in browser, so the

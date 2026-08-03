@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { ensureMonthlyGrant, getBalance } from '@/lib/credits';
+import { ensureMonthlyGrant, getBalance } from '@/lib/clips/credits';
 import {
   GenerationError,
   createGeneration,
   ensureUserRow,
   listGenerations,
-} from '@/lib/video/generations';
+} from '@/lib/clips/generations';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
