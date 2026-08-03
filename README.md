@@ -56,29 +56,6 @@ To change a price: update `lib/plans.ts` and point the matching env var at the
 new Stripe price. To add a tier: add it to `PLANS`, give it a `priceEnv`, add a
 `MONTHLY_BUILD_LIMIT` entry, and add a column to `COMPARISON`.
 
-## VibeClips (the clip studio)
-
-A second, self-contained product lives under `/clips`. It turns a one-line idea
-into a still preview and then animates that still into a clip.
-
-- `/clips/studio` — prompt, style template, aspect ratio, live stage, history.
-- `/clips/gallery` — public feed. Pro and Ultra generations stay private.
-- `/clips/pricing` — Free / Starter / Pro / Ultra at $0 / $39 / $99 / $199.
-
-It shares infrastructure with VibeClonePro (Clerk, Neon, the Stripe customer
-record) but nothing else: its own plan catalog in `lib/clips/plans.ts`, its own
-checkout action, and `STRIPE_PRICE_CLIPS_*` price IDs. A VibeClonePro
-subscription grants nothing in VibeClips, and vice versa.
-
-Generation runs through a provider abstraction in `lib/clips/provider.ts`. With
-no `FAL_KEY` set it falls back to a stub that returns placeholder media, so the
-whole loop — queue, poll, spend, refund, gallery — runs on a fresh clone with no
-credentials and no spend.
-
-Credits are an append-only ledger (`lib/clips/credits.ts`): monthly grants are
-idempotent per billing period, spends re-check the balance after writing so
-concurrent requests can't overdraw, and failures refund automatically.
-
 ## Layout
 
 | Path | What's there |
@@ -88,9 +65,11 @@ concurrent requests can't overdraw, and failures refund automatically.
 | `app/preview/[id]` | Single stored variant, scoped to its owner |
 | `app/api/clone` | Synchronous build endpoint |
 | `app/api/webhooks/stripe` | Subscription lifecycle sync into Neon |
-| `lib/` | VibeClonePro plans, entitlements, model IDs, generation logic |
-| `app/clips`, `lib/clips` | VibeClips: studio, gallery, pricing, credits, providers |
+| `lib/` | Plans, entitlements, model IDs, shared generation logic |
 | `proxy.ts` | Clerk route protection + maintenance kill switch |
 
 `vibe-clone-pro-export/` and `vibe-clone-pro-export.zip` are a point-in-time
 snapshot of the app, excluded from the build and lint.
+
+`vibeclips/` is a **separate product** with its own `package.json`, schema and
+deploy — it is not part of this app's build. See `vibeclips/README.md`.
