@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Rolling Rush</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a103c;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* width/height must be explicit: inset alone doesn't stretch a canvas,
+     so on DPR>1 screens it would display at its (2x) buffer size. */
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .hud {
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top));
+    left: 0; right: 0;
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 0 16px;
+    pointer-events: none;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0,0,0,.45);
+    font-weight: 700;
+  }
+  .hud .pill {
+    background: rgba(0,0,0,.28);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: clamp(14px, 2.4vh, 20px);
+    backdrop-filter: blur(4px);
+  }
+  .hud .coin::before { content: "●"; color: #ffd23e; margin-right: 6px; }
+  .hud .hud-btn {
+    pointer-events: auto;
+    border: 0; cursor: pointer;
+    font: inherit; color: #fff;
+    line-height: 1;
+  }
+
+  #toast {
+    position: fixed;
+    top: 22%;
+    left: 50%;
+    transform: translateX(-50%) scale(.8);
+    background: rgba(0,0,0,.45);
+    color: #ffd23e;
+    font-weight: 800;
+    font-size: clamp(18px, 3.6vh, 30px);
+    letter-spacing: .06em;
+    padding: 12px 28px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .35s ease, transform .35s ease;
+    text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    z-index: 5;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  .screen {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    background: rgba(16, 8, 42, .62);
+    color: #fff;
+    text-align: center;
+    padding: 24px 0;
+    backdrop-filter: blur(3px);
+    z-index: 10;
+  }
+  .screen.hidden { display: none; }
+  .screen h1 {
+    font-size: clamp(34px, 8vh, 64px);
+    letter-spacing: .02em;
+    background: linear-gradient(180deg, #ffd23e, #ff7a59);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+  }
+  .screen h2 { font-size: clamp(24px, 5vh, 40px); }
+  .screen p { font-size: clamp(14px, 2.6vh, 18px); opacity: .9; max-width: 34ch; line-height: 1.45; padding: 0 16px; }
+  .screen .stats { font-size: clamp(16px, 3vh, 22px); line-height: 1.6; }
+  .screen .stats b { color: #ffd23e; }
+  .btn {
+    pointer-events: auto;
+    border: 0; cursor: pointer;
+    font: inherit; font-weight: 800;
+    font-size: clamp(17px, 3vh, 22px);
+    color: #2a1450;
+    background: linear-gradient(180deg, #ffe27a, #ffb347);
+    padding: 14px 44px;
+    border-radius: 999px;
+    box-shadow: 0 6px 0 rgba(0,0,0,.25), 0 10px 24px rgba(0,0,0,.35);
+    transition: transform .08s ease;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  .hint { font-size: 13px; opacity: .65; }
+
+  .picker-label {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    opacity: .7;
+    margin-top: 6px;
+  }
+  .ball-row {
+    pointer-events: auto;
+    display: flex; gap: 8px;
+    max-width: min(92vw, 560px);
+    overflow-x: auto;
+    padding: 6px 12px 10px;
+    scrollbar-width: thin;
+  }
+  .ball-chip {
+    flex: 0 0 auto;
+    width: 54px; height: 54px;
+    padding: 3px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25);
+    background: rgba(0,0,0,.25);
+    cursor: pointer;
+    transition: transform .1s ease, border-color .1s ease;
+  }
+  .ball-chip canvas { width: 100%; height: 100%; display: block; border-radius: 50%; }
+  .ball-chip:active { transform: scale(.92); }
+  .ball-chip.selected {
+    border-color: #ffd23e;
+    box-shadow: 0 0 12px rgba(255, 210, 62, .55);
+    transform: scale(1.08);
+  }
+  .ball-chip { position: relative; }
+  .ball-chip.locked canvas { filter: grayscale(.7) brightness(.55); }
+  .ball-chip .price-tag {
+    position: absolute;
+    bottom: -4px; left: 50%;
+    transform: translateX(-50%);
+    background: #ffd23e;
+    color: #2a1450;
+    font-size: 11px; font-weight: 800;
+    padding: 1px 7px;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  .ball-chip:not(.locked) .price-tag { display: none; }
+
+  .btn.mini { padding: 8px 18px; font-size: 15px; box-shadow: 0 3px 0 rgba(0,0,0,.25); }
+  .btn.ghost {
+    background: rgba(255,255,255,.12);
+    color: #fff;
+    box-shadow: none;
+    border: 2px solid rgba(255,255,255,.35);
+  }
+
+  .shop-body {
+    pointer-events: auto;
+    width: min(94vw, 620px);
+    max-height: 100%;
+    overflow-y: auto;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    padding: 8px 4px 24px;
+  }
+  .shop-section {
+    width: 100%;
+    font-size: 13px; font-weight: 800;
+    letter-spacing: .12em; text-transform: uppercase;
+    opacity: .7; text-align: left;
+    margin-top: 10px;
+  }
+  .coin-balance {
+    font-weight: 800;
+    font-size: clamp(16px, 3vh, 22px);
+    color: #ffd23e;
+  }
+  .coin-balance::before { content: "● "; }
+
+  .boost-card {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: 10px 14px;
+    text-align: left;
+  }
+  .boost-icon { font-size: 28px; }
+  .boost-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .boost-info small { opacity: .7; font-size: 12px; line-height: 1.3; }
+  .boost-buy { display: flex; align-items: center; gap: 10px; font-weight: 800; }
+
+  .pack-row { display: flex; gap: 10px; width: 100%; }
+  .pack-card {
+    flex: 1;
+    display: flex; flex-direction: column; gap: 4px;
+    align-items: center;
+    background: rgba(255,255,255,.08);
+    border: 2px solid rgba(255,255,255,.18);
+    border-radius: 16px;
+    padding: 12px 6px;
+    color: #fff; font: inherit; font-size: 13px;
+    cursor: pointer;
+  }
+  .pack-card b { color: #ffd23e; font-size: 15px; }
+  .pack-card .pack-price {
+    font-weight: 800; font-size: 12px;
+    background: rgba(255,255,255,.15);
+    border-radius: 999px; padding: 2px 10px;
+    margin-top: 2px;
+  }
+  .pack-card.disabled { opacity: .55; }
+
+  .arm-label {
+    font-size: 12px; font-weight: 800;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: #ffd23e; opacity: .95;
+    margin-bottom: 2px;
+  }
+  .arm-label.hidden { display: none; }
+  .arm-row { display: flex; gap: 8px; min-height: 0; pointer-events: auto; flex-wrap: wrap; justify-content: center; max-width: min(94vw, 460px); }
+  .arm-chip {
+    display: flex; align-items: center; gap: 7px;
+    font: inherit; font-size: 14px; font-weight: 700;
+    color: #fff;
+    background: rgba(255,255,255,.1);
+    border: 2px solid rgba(255,255,255,.3);
+    border-radius: 999px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: transform .08s ease;
+  }
+  .arm-chip:active { transform: scale(.94); }
+  .arm-chip .ac-icon { font-size: 18px; }
+  .arm-chip .ac-count { opacity: .7; font-size: 12px; }
+  .arm-chip .ac-state {
+    font-size: 11px; font-weight: 800;
+    padding: 2px 8px; border-radius: 999px;
+    background: rgba(255,255,255,.18); color: #fff;
+  }
+  .arm-chip.armed {
+    border-color: #ffd23e;
+    background: rgba(255, 210, 62, .22);
+    box-shadow: 0 0 12px rgba(255,210,62,.45);
+  }
+  .arm-chip.armed .ac-state { background: #ffd23e; color: #2a1450; }
+
+  .admin-row {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    pointer-events: auto;
+    background: rgba(20, 8, 40, .5);
+    border: 2px solid #b388ff;
+    border-radius: 14px;
+    padding: 8px 12px;
+  }
+  .admin-tag { font-size: 11px; font-weight: 800; letter-spacing: .1em; color: #b388ff; }
+  .admin-btns { display: flex; gap: 6px; }
+  .admin-btn {
+    width: 34px; height: 34px;
+    font: inherit; font-weight: 800; font-size: 15px;
+    color: #fff; background: rgba(255,255,255,.12);
+    border: 2px solid rgba(255,255,255,.3); border-radius: 8px;
+    cursor: pointer;
+  }
+  .admin-btn.sel { background: #b388ff; color: #1a1030; border-color: #b388ff; }
+
+  .hidden { display: none !important; }
+  .acct-form {
+    width: min(88vw, 340px);
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: auto;
+  }
+  .acct-form input {
+    font: inherit; font-size: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.3);
+    background: rgba(0,0,0,.3);
+    color: #fff;
+  }
+  .acct-form input:focus { outline: none; border-color: #ffd23e; }
+  .acct-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* Tip link — warm, inviting, never blocking play. */
+  a.btn.tip {
+    text-decoration: none;
+    display: inline-block;
+    font-size: clamp(13px, 2.2vh, 16px);
+    padding: 11px 26px;
+    color: #2a1450;
+    background: linear-gradient(180deg, #ffe9a8, #ffcf5c);
+    box-shadow: 0 4px 0 rgba(0,0,0,.22), 0 8px 18px rgba(0,0,0,.3);
+  }
+
+  .lb {
+    list-style: none;
+    width: min(88vw, 380px);
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 15px;
+  }
+  .lb li {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 9px 14px;
+  }
+  .lb .lb-rank { width: 34px; font-weight: 800; }
+  .lb .lb-name { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lb b { color: #ffd23e; }
+  .lb .lb-you { border: 2px solid #ffd23e; }
+</style>
+<script type="importmap">
+  { "imports": {
+    "three": "./vendor/three.module.min.js",
+    "@supabase/supabase-js": "./vendor/supabase.module.js"
+  } }
+</script>
+<!-- YouTube Playables SDK: only resolves inside the YouTube environment; harmless elsewhere -->
+<script src="https://www.youtube.com/game_api/v1" defer onerror="void 0"></script>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="hud">
+  <div class="pill" id="hud-dist">0 m</div>
+  <div class="pill" id="hud-level">Lv 1</div>
+  <div class="pill coin" id="hud-coins">0</div>
+  <button class="pill hud-btn" id="btn-pause" title="Pause">⏸</button>
+</div>
+
+<div id="toast"></div>
+
+<div class="screen" id="screen-start">
+  <h1>Rolling Rush</h1>
+  <p>Drag to steer — push <b>up</b> to speed, pull <b>down</b> to brake (or ◀ ▶ ▲ ▼ keys). Dodge holes and boulders, hit boost pads, ride the loops — the world changes every level!</p>
+  <div class="picker-label">Choose your ball</div>
+  <div class="ball-row" id="ball-row-start"></div>
+  <div class="arm-label hidden" id="boost-arm-label">Tap a boost to use it this run</div>
+  <div class="arm-row" id="boost-arm-row"></div>
+  <button class="btn" id="btn-play">PLAY</button>
+  <button class="btn ghost" id="btn-shop">🛒 SHOP · <span data-coin-balance>0</span> coins</button>
+  <div class="acct-buttons">
+    <button class="btn ghost" id="btn-account">👤 Sign in</button>
+    <button class="btn ghost" id="btn-leaderboard">🏆 Top players</button>
+  </div>
+  <a class="btn tip" href="https://rolled740.itch.io/rolling-rush" target="_blank" rel="noopener">💛 Enjoying it? Tip the dev on itch.io</a>
+  <p class="hint" id="best-line"></p>
+</div>
+
+<div class="screen hidden" id="screen-leaderboard">
+  <div class="shop-body">
+    <h2>🏆 Top Players</h2>
+    <ol class="lb" id="lb-list"></ol>
+    <button class="btn" id="btn-lb-close">DONE</button>
+  </div>
+</div>
+
+<div class="screen hidden" id="screen-account">
+  <div class="shop-body">
+    <h2>Account</h2>
+    <p>Sign in to sync your coins, skins, and best run across devices — and to buy coin packs.</p>
+    <div id="account-signed-out" class="acct-form">
+      <input id="acct-name" type="text" maxlength="20" placeholder="Player name (for the leaderboard)">
+      <input id="acct-email" type="email" placeholder="Email" autocomplete="email">
+      <input id="acct-password" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+      <div class="acct-buttons">
+        <button class="btn mini" id="btn-acct-signin">SIGN IN</button>
+        <button class="btn mini ghost" id="btn-acct-signup">CREATE ACCOUNT</button>
+      </div>
+    </div>
+    <div id="account-signed-in" class="acct-form hidden">
+      <p>Signed in as <b id="account-email-line"></b><br>☁️ Progress syncs automatically.</p>
+      <button class="btn mini ghost" id="btn-acct-signout">SIGN OUT</button>
+    </div>
+    <p class="hint" id="account-status"></p>
+    <button class="btn" id="btn-acct-close">DONE</button>
+  </div>
+</div>
+
+<div class="screen hidden" id="screen-over">
+  <h2>You fell!</h2>
+  <p class="stats" id="over-stats"></p>
+  <div class="ball-row" id="ball-row-over"></div>
+  <div class="arm-label hidden" id="boost-arm-label-over">Tap a boost to use it this run</div>
+  <div class="arm-row" id="boost-arm-row-over"></div>
+  <button class="btn" id="btn-retry">PLAY AGAIN</button>
+  <button class="btn ghost" id="btn-shop-over">🛒 SHOP</button>
+  <a class="btn tip" href="https://rolled740.itch.io/rolling-rush" target="_blank" rel="noopener">💛 Tip the dev on itch.io</a>
+</div>
+
+<div class="screen hidden" id="screen-shop">
+  <div class="shop-body">
+    <h2>Shop</h2>
+    <div class="coin-balance"><span data-coin-balance>0</span> coins</div>
+    <div class="shop-section">Ball Skins — tap to buy &amp; equip</div>
+    <div class="ball-row" id="ball-row-shop"></div>
+    <div class="shop-section">Boosts — arm them on the start screen</div>
+    <div id="boost-list" style="width:100%; display:flex; flex-direction:column; gap:8px;"></div>
+    <div id="packs-section" style="width:100%">
+      <div class="shop-section">Coin Packs</div>
+      <div class="pack-row" id="pack-list"></div>
+    </div>
+    <button class="btn" id="btn-shop-close">DONE</button>
+  </div>
+</div>
+
+<div class="screen hidden" id="screen-pause">
+  <h2>Paused</h2>
+  <button class="btn" id="btn-resume">RESUME</button>
+  <button class="btn ghost" id="btn-shop-pause">🛒 SHOP</button>
+</div>
+
+<script type="module" src="./game.js"></script>
+</body>
+</html>
