@@ -1,0 +1,428 @@
+<title>Rolling Rush — Update &amp; Economy Roadmap</title>
+<style>
+  :root {
+    --ink:      #16122a;
+    --paper:    #faf7f2;
+    --surface:  #ffffff;
+    --slate:    #6b6480;
+    --rule:     #e2dcd2;
+    --gold:     #b8860f;
+    --gold-lit: #e8b53a;
+    --ember:    #c4441f;
+    --ship:     #2f7d5c;
+    --later:    #7a6f96;
+
+    --fg:       var(--ink);
+    --bg:       var(--paper);
+    --card:     var(--surface);
+    --muted:    var(--slate);
+    --line:     var(--rule);
+    --accent:   var(--gold);
+
+    --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --body:    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --data:    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg:     #ece7f5;
+      --bg:     #120f20;
+      --card:   #1c1830;
+      --muted:  #9a92b4;
+      --line:   #2e2842;
+      --accent: var(--gold-lit);
+      --ember:  #f0693d;
+      --ship:   #4fb98a;
+      --later:  #a99cc9;
+    }
+  }
+  :root[data-theme="dark"] {
+    --fg:#ece7f5; --bg:#120f20; --card:#1c1830; --muted:#9a92b4;
+    --line:#2e2842; --accent:#e8b53a; --ember:#f0693d; --ship:#4fb98a; --later:#a99cc9;
+  }
+  :root[data-theme="light"] {
+    --fg:#16122a; --bg:#faf7f2; --card:#ffffff; --muted:#6b6480;
+    --line:#e2dcd2; --accent:#b8860f; --ember:#c4441f; --ship:#2f7d5c; --later:#7a6f96;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--body);
+    font-size: 17px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 74ch;
+    margin: 0 auto;
+    padding: clamp(32px, 7vw, 80px) clamp(18px, 5vw, 32px) 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .eyebrow {
+    font-family: var(--data);
+    font-size: 12px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(34px, 6.5vw, 54px);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    margin: 6px 0 0;
+  }
+  .standfirst {
+    font-size: clamp(18px, 2.4vw, 21px);
+    color: var(--muted);
+    max-width: 58ch;
+    margin: 14px 0 0;
+    text-wrap: pretty;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(23px, 3.4vw, 30px);
+    letter-spacing: -0.018em;
+    line-height: 1.15;
+    text-wrap: balance;
+    margin: 56px 0 0;
+    padding-top: 22px;
+    border-top: 2px solid var(--accent);
+  }
+  h3 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: -0.01em;
+    margin: 30px 0 0;
+  }
+  p { margin: 12px 0 0; max-width: 66ch; text-wrap: pretty; }
+  ul { margin: 12px 0 0; padding-left: 20px; max-width: 66ch; }
+  li { margin: 5px 0; }
+  strong { font-weight: 700; }
+  em { font-style: italic; color: var(--muted); }
+
+  .thesis {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--ember);
+    padding: 20px 24px;
+    margin-top: 26px;
+    font-size: 19px;
+    line-height: 1.5;
+  }
+  .thesis p { margin: 0; max-width: none; }
+  .thesis p + p { margin-top: 10px; }
+
+  .scroll { overflow-x: auto; margin-top: 18px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    min-width: 520px;
+  }
+  th {
+    font-family: var(--data);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    font-weight: 600;
+    padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  td {
+    padding: 11px 14px 11px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  td.num, th.num { font-family: var(--data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  .item { font-weight: 650; white-space: nowrap; }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--data);
+    font-size: 10.5px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid currentColor;
+    white-space: nowrap;
+  }
+  .chip.high  { color: var(--ember); }
+  .chip.med   { color: var(--accent); }
+  .chip.low   { color: var(--later); }
+  .chip.ship  { color: var(--ship); }
+
+  .lever {
+    background: var(--card);
+    border: 1px solid var(--line);
+    padding: 20px 22px;
+    margin-top: 16px;
+  }
+  .lever-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .lever-head h3 { margin: 0; }
+  .lever p { margin-top: 8px; }
+  .lever .quote {
+    font-family: var(--data);
+    font-size: 13.5px;
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 9%, transparent);
+    padding: 9px 12px;
+    margin-top: 12px;
+    border-radius: 3px;
+    max-width: none;
+  }
+
+  .phase {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 18px;
+    margin-top: 22px;
+    align-items: start;
+  }
+  .phase-n {
+    font-family: var(--data);
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    padding-top: 2px;
+    white-space: nowrap;
+  }
+  .phase-body h3 { margin-top: 0; }
+  .phase-body p { margin-top: 6px; }
+
+  .note {
+    margin-top: 26px;
+    padding: 18px 22px;
+    border: 1px dashed var(--line);
+    color: var(--muted);
+    font-size: 15.5px;
+  }
+  .note strong { color: var(--fg); }
+  .note p { max-width: none; }
+  .note p:first-child { margin-top: 0; }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-family: var(--data);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+</style>
+
+<div class="wrap">
+
+  <div class="eyebrow">Rolling Rush · Product Plan · v15 and beyond</div>
+  <h1>What to build next, and what actually makes people buy coins</h1>
+  <p class="standfirst">Eight new worlds, three ball sizes, nine power balls, and an economy designed around the two moments players reach for their wallet.</p>
+
+  <div class="thesis">
+    <p><strong>Nobody buys coins for something they can wait for.</strong></p>
+    <p>Right now every coin in Rolling Rush buys a cosmetic that patience also buys. That's a shop, not an economy. Purchases happen at two moments: <em>loss</em> — you just died at a personal record — and <em>desire</em> — you want a specific thing and you're short. Everything below is built to create those two moments honestly.</p>
+  </div>
+
+  <h2>The five levers, ranked by revenue</h2>
+  <p>Ordered by what actually moves money in endless runners, not by what's fun to build.</p>
+
+  <div class="lever">
+    <div class="lever-head">
+      <h3>Continue the run</h3>
+      <span class="chip high">Highest impact</span>
+    </div>
+    <p>You fall at 847&nbsp;m — a new record by 60&nbsp;m. Instead of the game-over screen, you get three seconds and one question. This is the single biggest revenue driver in the genre, and Rolling Rush doesn't have it.</p>
+    <div class="quote">Continue from 847 m? — 50 coins · price doubles each use in a run</div>
+    <p>The escalating price matters: it keeps a great run alive without letting anyone buy an infinite score, which would wreck the leaderboard.</p>
+  </div>
+
+  <div class="lever">
+    <div class="lever-head">
+      <h3>Permanent upgrades</h3>
+      <span class="chip high">Infinite coin sink</span>
+    </div>
+    <p>Skins cap out — once you own 33 balls, coins are worthless. Upgrades never cap. This is what keeps coins valuable a hundred hours in.</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Upgrade</th><th>Levels</th><th class="num">Lv1</th><th class="num">Max</th><th class="num">Total</th></tr></thead>
+        <tbody>
+          <tr><td class="item">Coin Magnet</td><td>Pull radius</td><td class="num">40</td><td class="num">1,200</td><td class="num">4,800</td></tr>
+          <tr><td class="item">Boost Duration</td><td>1.3 s → 4 s</td><td class="num">60</td><td class="num">1,400</td><td class="num">5,600</td></tr>
+          <tr><td class="item">Shield Slots</td><td>1 → 3 per run</td><td class="num">200</td><td class="num">2,000</td><td class="num">4,400</td></tr>
+          <tr><td class="item">Head Start</td><td>150 m → 600 m</td><td class="num">80</td><td class="num">900</td><td class="num">3,000</td></tr>
+          <tr><td class="item">Revive Discount</td><td>−10% each</td><td class="num">150</td><td class="num">1,500</td><td class="num">4,200</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p><strong>~22,000 coins to max everything.</strong> At roughly 15 coins a run that's 1,400 runs — comfortably past the point where a $4.99 pack looks reasonable, without ever being required.</p>
+  </div>
+
+  <div class="lever">
+    <div class="lever-head">
+      <h3>Timewarp — jump to any world</h3>
+      <span class="chip med">Your idea, and a good one</span>
+    </div>
+    <p>Reaching Pyramids means surviving 2,400&nbsp;m. Most players never see half the game they're being sold. Timewarp turns that frustration into a purchase: unlock any world and start runs there.</p>
+    <div class="quote">Unlock a world — 300 coins · Timewarp Pass, every world — 2,000 coins</div>
+    <p>It also quietly solves a retention problem: new worlds you've already built stop being invisible. Pair it with a world-select carousel on the start screen so players see the locked ones every single session.</p>
+  </div>
+
+  <div class="lever">
+    <div class="lever-head">
+      <h3>Mystery crate</h3>
+      <span class="chip med">Collection pressure</span>
+    </div>
+    <p>Your reference game leans on this hard. A crate costs coins and always returns a skin you don't already own — no duplicates, no bad luck, no gambling mechanics. Cheaper per skin than buying directly, so it's a genuine deal, and it makes the collection screen the thing players chase.</p>
+    <div class="quote">Mystery Crate — 150 coins · always a skin you don't own</div>
+  </div>
+
+  <div class="lever">
+    <div class="lever-head">
+      <h3>Daily streak &amp; rotating deal</h3>
+      <span class="chip low">Retention, not revenue</span>
+    </div>
+    <p>A seven-day streak that pays 10/15/25/40/60/100/250 coins, and one featured skin at 40% off each day. Neither makes much money directly — they make people open the game, which is what makes everything else work.</p>
+  </div>
+
+  <h2>Eight new worlds</h2>
+  <p>The existing eight all play identically apart from Snow and Ice. The mechanic column is what makes a world worth unlocking — and worth putting behind Timewarp.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>World</th><th>Look</th><th>Mechanic twist</th></tr></thead>
+      <tbody>
+        <tr><td class="item">Volcano</td><td>Black rock, ember rain, red glow</td><td>Lava spurts erupt from lanes on a timer</td></tr>
+        <tr><td class="item">Neon City</td><td>Night, glowing grid, wet reflections</td><td>Dark — you see two segments ahead, not five</td></tr>
+        <tr><td class="item">Orbit Station</td><td>Starfield, panels, floating debris</td><td>Low gravity: jumps float twice as long</td></tr>
+        <tr><td class="item">Candy Run</td><td>Pastel, gumdrops, lollipop trees</td><td>Bouncy track — the ball never stops hopping</td></tr>
+        <tr><td class="item">Graveyard</td><td>Fog, tombstones, bare trees</td><td>Fog closes in; boulders appear late</td></tr>
+        <tr><td class="item">Deep Reef</td><td>Underwater, coral, bubble columns</td><td>Drag slows you; currents push sideways</td></tr>
+        <tr><td class="item">Red Canyon</td><td>Mesas, arches, dust</td><td>Crosswind shoves the ball off your line</td></tr>
+        <tr><td class="item">Cloud Kingdom</td><td>Above the clouds, rainbow spans</td><td>Track segments fade in and out underfoot</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That takes the cycle to sixteen worlds — roughly 6,400&nbsp;m before anything repeats, and eight more things Timewarp can sell.</p>
+
+  <h2>Ball sizes</h2>
+  <p>One physical property, three real strategies. Sizes are a separate axis from skins, so they multiply the collection instead of adding to it.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Size</th><th class="num">Radius</th><th>Advantage</th><th>Cost</th></tr></thead>
+      <tbody>
+        <tr><td class="item">Marble</td><td class="num">0.28</td><td>Slips through gaps that stop everyone else; harder to hit</td><td>Smaller coin pickup radius</td></tr>
+        <tr><td class="item">Standard</td><td class="num">0.42</td><td>The balanced default</td><td>—</td></tr>
+        <tr><td class="item">Boulder</td><td class="num">0.62</td><td>Smashes through rolling boulders outright</td><td>Too wide for single-lane gaps; slower to steer</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Nine power balls</h2>
+  <p>Each one changes how a run is played, not just how it looks. Prices sit above grind range on purpose — these are the things people buy coins for.</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Ball</th><th>Power</th><th class="num">Coins</th></tr></thead>
+      <tbody>
+        <tr><td class="item">⏰ Timewarp</td><td>Rewind three seconds after a fall, once per run</td><td class="num">600</td></tr>
+        <tr><td class="item">🧲 Magnet</td><td>Pulls coins from neighbouring lanes</td><td class="num">450</td></tr>
+        <tr><td class="item">👻 Ghost</td><td>Phase through boulders for five seconds after a hit</td><td class="num">500</td></tr>
+        <tr><td class="item">💎 Diamond</td><td>Indestructible for the first 200 m</td><td class="num">550</td></tr>
+        <tr><td class="item">⚡ Storm</td><td>Higher top speed and a 1.5× score multiplier</td><td class="num">700</td></tr>
+        <tr><td class="item">🌀 Portal</td><td>Teleports past the next hole instead of falling</td><td class="num">650</td></tr>
+        <tr><td class="item">🪙 Midas</td><td>Coins pay triple — but one hit ends the run</td><td class="num">800</td></tr>
+        <tr><td class="item">🌈 Prism</td><td>Every world's mechanic is disabled — no ice, no fog, no wind</td><td class="num">900</td></tr>
+        <tr><td class="item">🕳️ Void</td><td>Holes close behind you; the track never gaps</td><td class="num">1,200</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Note the shape of that list: the expensive ones remove a difficulty, and difficulty is what the free player feels every run. That's the desire half of the thesis.</p>
+
+  <h2>Coin packs</h2>
+  <p>Two changes to what you already have, both worth more than the packs themselves.</p>
+
+  <h3>Starter Pack — $2.99, once per account</h3>
+  <p>1,500 coins plus an exclusive skin nobody can earn. First-time offers convert several times better than any recurring pack because the buyer isn't judging value, they're judging entry. Show it after a player's third run, never before.</p>
+
+  <h3>Coin Doubler — $4.99, permanent</h3>
+  <p>Every coin earned for the rest of time counts twice. This reliably outsells consumable packs in this genre: it rewards the players who already love the game, and it makes every future session feel better rather than draining a balance.</p>
+
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Pack</th><th class="num">Coins</th><th class="num">Price</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td class="item">Starter Pack</td><td class="num">1,500</td><td class="num">$2.99</td><td>Entry point, one time only</td></tr>
+        <tr><td class="item">Pocketful</td><td class="num">500</td><td class="num">$0.99</td><td>Anchor — makes the others look good</td></tr>
+        <tr><td class="item">Sack</td><td class="num">3,000</td><td class="num">$4.99</td><td>Mark this "Best Value"</td></tr>
+        <tr><td class="item">Treasure Chest</td><td class="num">10,000</td><td class="num">$9.99</td><td>For the upgrade-tree players</td></tr>
+        <tr><td class="item">Coin Doubler</td><td class="num">—</td><td class="num">$4.99</td><td>Permanent 2× earnings</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Build order</h2>
+
+  <div class="phase">
+    <div class="phase-n">v15</div>
+    <div class="phase-body">
+      <h3>Continue &amp; upgrades <span class="chip ship">Ship first</span></h3>
+      <p>The revive prompt and the five-track upgrade screen. No new art required, and it's the only phase that changes revenue on its own. Everything after this is content that the economy can now sell.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">v16</div>
+    <div class="phase-body">
+      <h3>Timewarp &amp; world select</h3>
+      <p>The world carousel, per-world unlocks, and the Pass. Makes the eight worlds you already built visible, which is why it comes before building eight more.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">v17</div>
+    <div class="phase-body">
+      <h3>Four new worlds — Volcano, Neon City, Orbit Station, Deep Reef</h3>
+      <p>The four with the strongest mechanic hooks and the best clip potential. Low gravity and lava spurts film well.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">v18</div>
+    <div class="phase-body">
+      <h3>Ball sizes, power balls, mystery crate</h3>
+      <p>Sizes and powers land together so the crate has a deep enough pool to feel worth opening.</p>
+    </div>
+  </div>
+  <div class="phase">
+    <div class="phase-n">v19</div>
+    <div class="phase-body">
+      <h3>Remaining worlds, streaks, daily deal</h3>
+      <p>Candy Run, Graveyard, Red Canyon, Cloud Kingdom, plus the retention layer once there's enough content to come back to.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <p><strong>Two constraints worth designing around now, not later.</strong></p>
+    <p><strong>Playables bans third-party payments.</strong> Everything monetary here has to compile out of the YouTube build — the same switch that already hides your coin packs. Keep coins earnable there and the game stays fully playable without a store.</p>
+    <p><strong>Keep the crate honest.</strong> A crate that always gives a skin you don't own is a discount, not a loot box. Paid randomised rewards draw real regulatory attention in the EU and UK, get scrutinised on the app stores, and this game skews young. The no-duplicates rule keeps you clear of all of it and players prefer it anyway.</p>
+  </div>
+
+  <footer>Rolling Rush · rollingrush.app · roadmap drafted for v15–v19</footer>
+
+</div>
